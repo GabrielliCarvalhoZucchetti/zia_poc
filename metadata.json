@@ -1,0 +1,8 @@
+{
+  "name": "ZIA - AI Governance & Agent Platform",
+  "description": "A high-performance interface for managing AI agents, assistants, and vectorized documentation with a robust, role-based permission system (RBAC). Featuring real-time chat, resource management, project Kanban, and comprehensive monitoring dashboards.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
