@@ -7,12 +7,11 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const menuItems = [
-    { path: '/chat', label: 'Chat', icon: <Icons.Chat /> },
+    { path: '/chat', label: 'Playground', icon: <Icons.Chat /> },
     { path: '/resources', label: 'Gestão de Recursos', icon: <Icons.AgentBuilder /> },
     { path: '/lab', label: 'Laboratório', icon: <Icons.Lab /> },
     { path: '/monitoring', label: 'Monitoramento', icon: <Icons.Monitoring /> },
     { path: '/audit', label: 'Auditoria', icon: <Icons.Search /> },
-    { path: '/playground', label: 'Playground', icon: <Icons.Playground /> },
     { path: '/docs', label: 'Documentação', icon: <Icons.Documentation /> },
   ];
 

@@ -9,6 +9,7 @@ import ResourceManagementPage from './pages/ResourceManagementPage';
 import DocumentationPage from './pages/DocumentationPage';
 import LabPage from './pages/LabPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import MonitoringPage from './pages/MonitoringPage';
 
 const INITIAL_RESOURCES: Resource[] = [
   { id: 'r1', name: 'Assistente Geral', description: 'IA multiuso para tarefas diárias.', type: ResourceType.AGENT, agentType: AgentType.READING, requiredRole: UserRole.BASIC, icon: '⚡', createdAt: '2025-01-10' },
@@ -36,7 +37,7 @@ const App: React.FC = () => {
   const handleCreateResource = (res: Omit<Resource, 'id' | 'createdAt'>) => {
     const newRes: Resource = {
       ...res,
-      id: `r-${Date.now()}`,
+      id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString().split('T')[0]
     };
     setResources(prev => [...prev, newRes]);
@@ -47,7 +48,7 @@ const App: React.FC = () => {
   };
 
   const handleNewConversation = (resourceId: string): string => {
-    const id = Date.now().toString();
+    const id = `c-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newConv: Conversation = {
       id,
       title: `Conversa ${conversations.length + 1}`,
@@ -105,8 +106,7 @@ const App: React.FC = () => {
               } />
               <Route path="/lab" element={<div className="flex-1 overflow-y-auto bg-slate-50"><LabPage /></div>} />
               <Route path="/audit" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AuditLogsPage /></div>} />
-              <Route path="/monitoring" element={<div className="flex-1 overflow-y-auto bg-slate-50 p-10 text-center text-slate-400 font-bold text-2xl uppercase tracking-widest">Painel de Monitoramento<br/><span className="text-xs font-normal">Consumo de tokens, latência e logs de auditoria visíveis em produção.</span></div>} />
-              <Route path="/playground" element={<div className="flex-1 overflow-y-auto bg-slate-50 p-10 text-center text-slate-400 font-bold text-2xl uppercase tracking-widest">Laboratório de Testes (Playground)<br/><span className="text-xs font-normal">Teste prompts e variações de modelos aqui.</span></div>} />
+              <Route path="/monitoring" element={<div className="flex-1 overflow-y-auto bg-slate-50"><MonitoringPage /></div>} />
               <Route path="/docs" element={<div className="flex-1 overflow-y-auto bg-slate-50"><DocumentationPage /></div>} />
             </Routes>
           </main>

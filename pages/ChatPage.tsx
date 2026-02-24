@@ -51,7 +51,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
     }
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `m-u-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
       content: input,
       timestamp: new Date().toLocaleTimeString(),
@@ -72,7 +72,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
     const aiResponse = await generateAgentResponse(input, history, activeResource.prompt);
 
     const botMsg: Message = {
-      id: (Date.now() + 1).toString(),
+      id: `m-a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'assistant',
       content: aiResponse,
       timestamp: new Date().toLocaleTimeString(),
@@ -153,7 +153,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
         </div>
       </aside>
 
-      {/* Área Principal de Chat */}
+      {/* Área Principal do Playground */}
       <main className="flex-1 flex flex-col bg-white h-full relative overflow-hidden">
         
         {/* Lista de Mensagens (Ocupa o centro e estende até o fundo) */}
