@@ -2,7 +2,12 @@
 import React from 'react';
 import { Icons } from '../constants';
 
-const MonitoringPage: React.FC = () => {
+interface MonitoringPageProps {
+  systemWebhookUrl: string;
+  onUpdateSystemWebhook: (url: string) => void;
+}
+
+const MonitoringPage: React.FC<MonitoringPageProps> = ({ systemWebhookUrl, onUpdateSystemWebhook }) => {
   const [apiKeys, setApiKeys] = React.useState([
     { name: 'Produção - ERP', key: 'sk-...4a2b', status: 'Ativa', usage: 'High' },
     { name: 'Dev - Sandbox', key: 'sk-...9f1e', status: 'Ativa', usage: 'Low' },
@@ -101,6 +106,40 @@ const MonitoringPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* System Webhook Card (New) */}
+        <div className="bg-slate-900 p-6 rounded-3xl text-white md:col-span-2 shadow-xl border border-white/5">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-sky-500/20 text-sky-400 rounded-2xl flex items-center justify-center">
+              <Icons.Settings />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Webhook do Sistema</h2>
+              <p className="text-xs text-slate-400">Integração global para eventos de governança e solicitações.</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">URL de Notificação (n8n, Lovable, etc.)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="url" 
+                  value={systemWebhookUrl}
+                  onChange={(e) => onUpdateSystemWebhook(e.target.value)}
+                  placeholder="https://seu-webhook.com/api/system-events" 
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                />
+                <div className="bg-sky-500/20 text-sky-400 px-4 py-3 rounded-xl border border-sky-500/30 flex items-center justify-center">
+                  <Icons.Check className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 italic">
+                Este webhook será acionado automaticamente quando novas solicitações de acesso forem criadas ou processadas.
+              </p>
+            </div>
           </div>
         </div>
       </div>

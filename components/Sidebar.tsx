@@ -2,8 +2,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Icons } from '../constants';
+import { UserRole } from '../types';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  userRole?: UserRole;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
 
   const menuItems = [
@@ -14,6 +19,10 @@ const Sidebar: React.FC = () => {
     { path: '/audit', label: 'Auditoria', icon: <Icons.Search /> },
     { path: '/docs', label: 'Documentação', icon: <Icons.Documentation /> },
   ];
+
+  if (userRole === UserRole.ADMINISTRATOR) {
+    menuItems.push({ path: '/access-requests', label: 'Solicitações', icon: <Icons.Check /> });
+  }
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 h-screen flex flex-col shrink-0">

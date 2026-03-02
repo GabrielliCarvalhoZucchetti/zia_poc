@@ -15,7 +15,15 @@ export enum AgentType {
 
 export enum ResourceType {
   AGENT = 'AGENT',
-  DOCUMENTATION = 'DOCUMENTATION'
+  ASSISTANT = 'ASSISTANT',
+  AUTOMATION = 'AUTOMATION',
+  DOCUMENTATION = 'DOCUMENTATION',
+  MARKET_MODEL = 'MARKET_MODEL'
+}
+
+export enum ResourceEnvironment {
+  STAGING = 'STAGING',
+  PRODUCTION = 'PRODUCTION'
 }
 
 export interface Resource {
@@ -25,10 +33,20 @@ export interface Resource {
   type: ResourceType;
   agentType?: AgentType;
   requiredRole: UserRole;
-  icon: string;
   createdAt: string;
   prompt?: string;
   linkedDocs?: string[]; // IDs of documentation resources
+  environment: ResourceEnvironment;
+  creatorId: string;
+  webhookUrl?: string;
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'audio' | 'document' | 'link';
+  url: string;
+  size?: number;
 }
 
 export interface Message {
@@ -37,6 +55,7 @@ export interface Message {
   content: string;
   timestamp: string;
   agentId?: string;
+  attachments?: Attachment[];
 }
 
 export interface Conversation {
@@ -63,4 +82,18 @@ export interface User {
   name: string;
   role: UserRole;
   avatar: string;
+}
+
+export interface AccessRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  userBU: 'Comercial' | 'Administração' | 'Staff' | 'ERP' | 'POS' | 'HR TECH';
+  resourceId: string;
+  resourceName: string;
+  resourceCategory: 'Agente' | 'Assistente' | 'Automação';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  timestamp: string;
+  reason?: string;
 }
