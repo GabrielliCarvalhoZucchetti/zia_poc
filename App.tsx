@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment } from './types';
+import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
@@ -11,16 +11,38 @@ import LabPage from './pages/LabPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import MonitoringPage from './pages/MonitoringPage';
 import AccessRequestsPage from './pages/AccessRequestsPage';
-import { AccessRequest } from './types';
+
+const INITIAL_PROJECTS: Project[] = [
+  { 
+    id: 'r1', 
+    title: 'Assistente Geral', 
+    status: 'MONITORAMENTO', 
+    description: 'Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões.', 
+    scope: 'Global', 
+    metrics: 'NPS > 90', 
+    deadline: '2025-12-31', 
+    user: 'Sistema', 
+    email: 'suporte@zucchetti.com.br', 
+    type: 'Assistente',
+    comments: [
+      { id: 'c1', user: 'Gabriel Ricardo', content: 'Comentado por: alice.castro@zucchetti.com Fonte de dados: Valor Econômico, Google Alerta, Isto É Dinheiro, Revistas de TI, Época Negócios, Comissão de Valores Mobiliários, Publicação de Balanços', timestamp: '2026-01-26T10:00:00Z' },
+      { id: 'c2', user: 'Gabriel Ricardo', content: 'Comentado por: alice.castro@zucchetti.com Fontes de notícias, termos de busca e lista de concorrentes: https://zucchettioffice365.sharepoint.com/:x:/s/GestaoEstrategica/IQAAoHqAgmLQRahrzX_D48bKAAy-zDES_Qj_BQbMkkTwWHw?e=hdQCaX Modelo de output: https://zucchettioffice365.sharepoint.com/:w:/s/GestaoEstrategica/IQBVlrCQx5ReT7gPTjQNfQFmAbtkJXmstetSWg7y?e=tNZeIn', timestamp: '2026-01-29T14:30:00Z' },
+      { id: 'c3', user: 'Gabrielli Marques Carvalho', content: 'Realizado reunião de demonstração prévia de projeto e alinhado alguns pontos quanto ao desenvolvimento do projeto(stack e fluxo do projeto no n8n), estamos no aguardo da área de negócio para prosseguir com o desenvolvimento do tutorial junto com envio de algumas informações por email.', timestamp: '2026-02-06T16:45:00Z' }
+    ]
+  },
+  { id: 'r2', title: 'Doc ClippPro', status: 'CONCLUIDO', description: 'Documentação oficial do produto vetorizada para consulta via IA.', scope: 'Interno', metrics: '100% cobertura', deadline: '2025-01-12', user: 'Sistema', email: 'documentacao@zucchetti.com.br', type: 'Automação' },
+  { id: 'r3', title: 'Gestor de Base', status: 'DESENVOLVIMENTO', description: 'Agente para manipulação e escrita de dados em base segura.', scope: 'Infra', metrics: 'Latência < 2s', deadline: '2025-06-30', user: 'Sistema', email: 'infra@zucchetti.com.br', type: 'Agente' },
+  { id: 'r4', title: 'Auditor de Sistema', status: 'REFINAMENTO', description: 'Analista de logs para investigação de erros e auditoria de segurança.', scope: 'Segurança', metrics: '99% detecção', deadline: '2025-07-15', user: 'Sistema', email: 'seguranca@zucchetti.com.br', type: 'Agente' },
+];
 
 const INITIAL_RESOURCES: Resource[] = [
-  { id: 'r1', name: 'Assistente Geral', description: 'Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões. Identifica automaticamente o especialista necessário para sua pergunta, permitindo também a seleção manual de qualquer assistente ao qual você tenha acesso.', type: ResourceType.AGENT, agentType: AgentType.READING, requiredRole: UserRole.BASIC, createdAt: '2025-01-10', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system' },
-  { id: 'r2', name: 'Doc ClippPro', description: 'Documentação oficial do produto.', type: ResourceType.DOCUMENTATION, requiredRole: UserRole.BASIC, createdAt: '2025-01-12', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system' },
-  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system' },
-  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system' },
-  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system' },
-  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system' },
-  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system' },
+  { id: 'r1', name: 'Assistente Geral', description: 'Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões. Identifica automaticamente o especialista necessário para sua pergunta, permitindo também a seleção manual de qualquer assistente ao qual você tenha acesso.', type: ResourceType.AGENT, agentType: AgentType.READING, requiredRole: UserRole.BASIC, createdAt: '2025-01-10', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-01-10', projectId: 'r1' },
+  { id: 'r2', name: 'Doc ClippPro', description: 'Documentação oficial do produto.', type: ResourceType.DOCUMENTATION, requiredRole: UserRole.BASIC, createdAt: '2025-01-12', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-01-12', projectId: 'r2' },
+  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
+  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
+  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
+  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
+  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
 ];
 
 const INITIAL_REQUESTS: AccessRequest[] = [
@@ -61,6 +83,7 @@ const App: React.FC = () => {
   });
 
   const [resources, setResources] = useState<Resource[]>(INITIAL_RESOURCES);
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [activeResource, setActiveResource] = useState<Resource | null>(INITIAL_RESOURCES[0]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(INITIAL_REQUESTS);
@@ -70,23 +93,104 @@ const App: React.FC = () => {
     setUser(prev => ({ ...prev, role }));
   };
 
-  const handleCreateResource = (res: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId'>) => {
+  const handleCreateResource = (res: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'>) => {
+    const now = new Date().toISOString().split('T')[0];
     const newRes: Resource = {
       ...res,
       id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
       environment: ResourceEnvironment.STAGING,
-      creatorId: user.id
+      creatorId: user.id,
+      history: []
     };
     setResources(prev => [...prev, newRes]);
   };
 
   const handleUpdateResource = (updatedRes: Resource) => {
-    setResources(prev => prev.map(r => r.id === updatedRes.id ? updatedRes : r));
+    setResources(prev => prev.map(r => {
+      if (r.id === updatedRes.id) {
+        const now = new Date().toLocaleString();
+        const newVersion = {
+          version: r.version,
+          name: r.name,
+          description: r.description,
+          prompt: r.prompt,
+          webhookUrl: r.webhookUrl,
+          updatedAt: r.updatedAt,
+          updatedBy: user.name
+        };
+        
+        return {
+          ...updatedRes,
+          version: r.version + 1,
+          updatedAt: now,
+          history: [newVersion, ...(r.history || [])]
+        };
+      }
+      return r;
+    }));
+  };
+
+  const handleCreateProject = (project: Omit<Project, 'id' | 'user'>) => {
+    const newProject: Project = {
+      ...project,
+      id: Math.floor(1000 + Math.random() * 9000).toString(), // Generate a 4-digit ID
+      user: user.name,
+      email: project.email || '',
+      type: project.type || 'Assistente'
+    };
+    setProjects(prev => [newProject, ...prev]);
+    return newProject.id;
+  };
+
+  const handleAddComment = (projectId: string, content: string) => {
+    setProjects(prev => prev.map(p => 
+      p.id === projectId 
+      ? { 
+          ...p, 
+          comments: [
+            ...(p.comments || []), 
+            { 
+              id: `c-${Date.now()}`, 
+              user: user.name, 
+              content, 
+              timestamp: new Date().toISOString() 
+            }
+          ] 
+        }
+      : p
+    ));
+  };
+
+  const handleAddSubtask = (projectId: string, subtask: Omit<Subtask, 'id' | 'createdAt' | 'status'>) => {
+    setProjects(prev => prev.map(p => 
+      p.id === projectId 
+      ? { 
+          ...p, 
+          subtasks: [
+            ...(p.subtasks || []), 
+            { 
+              ...subtask,
+              id: `st-${Date.now()}`, 
+              createdAt: new Date().toISOString(),
+              status: 'Pendente'
+            }
+          ] 
+        }
+      : p
+    ));
   };
 
   const handleDeleteResource = (id: string) => {
-    setResources(prev => prev.filter(r => r.id !== id));
+    setResources(prev => prev
+      .filter(r => r.id !== id)
+      .map(r => ({
+        ...r,
+        linkedDocs: r.linkedDocs?.filter(docId => docId !== id)
+      }))
+    );
   };
 
   const handleNewConversation = (resourceId: string): string => {
@@ -111,10 +215,31 @@ const App: React.FC = () => {
   };
 
   const handleApproveRequest = (id: string) => {
+    const request = accessRequests.find(req => req.id === id);
+    
     setAccessRequests(prev => prev.map(req => 
       req.id === id ? { ...req, status: 'APPROVED' } : req
     ));
-    // Em um app real, aqui também atualizaríamos as permissões do usuário para o recurso
+
+    // Se for uma solicitação de promoção, atualiza o ambiente do recurso
+    if (request && request.resourceCategory === 'Promoção') {
+      setResources(prev => prev.map(res => 
+        res.id === request.resourceId ? { ...res, environment: ResourceEnvironment.PRODUCTION } : res
+      ));
+    }
+
+    // Simulação de integração com Jira
+    if (systemWebhookUrl) {
+      fetch(systemWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'REQUEST_APPROVED',
+          jira_sync: true,
+          request
+        })
+      }).catch(err => console.error("Jira sync failed:", err));
+    }
   };
 
   const handleRejectRequest = (id: string) => {
@@ -123,7 +248,7 @@ const App: React.FC = () => {
     ));
   };
 
-  const handleCreateRequest = async (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação') => {
+  const handleCreateRequest = async (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => {
     const newRequest: AccessRequest = {
       id: `req-${Date.now()}`,
       userId: user.id,
@@ -135,7 +260,7 @@ const App: React.FC = () => {
       resourceCategory: category,
       status: 'PENDING',
       timestamp: new Date().toLocaleString(),
-      reason: 'Solicitação via interface do chat.'
+      reason: reason || 'Solicitação via interface do sistema.'
     };
 
     setAccessRequests(prev => [newRequest, ...prev]);
@@ -203,13 +328,25 @@ const App: React.FC = () => {
                   <ResourceManagementPage 
                     user={user}
                     resources={resources} 
+                    projects={projects}
                     onCreateResource={handleCreateResource}
                     onUpdateResource={handleUpdateResource}
                     onDeleteResource={handleDeleteResource}
+                    onCreateRequest={handleCreateRequest}
                   />
                 </div>
               } />
-              <Route path="/lab" element={<div className="flex-1 overflow-y-auto bg-slate-50"><LabPage /></div>} />
+              <Route path="/lab" element={
+                <div className="flex-1 overflow-y-auto bg-slate-50">
+                  <LabPage 
+                    user={user}
+                    projects={projects} 
+                    onCreateProject={handleCreateProject}
+                    onAddComment={handleAddComment}
+                    onAddSubtask={handleAddSubtask}
+                  />
+                </div>
+              } />
               <Route path="/audit" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AuditLogsPage /></div>} />
               <Route path="/monitoring" element={<div className="flex-1 overflow-y-auto bg-slate-50"><MonitoringPage systemWebhookUrl={systemWebhookUrl} onUpdateSystemWebhook={setSystemWebhookUrl} /></div>} />
               <Route path="/docs" element={<div className="flex-1 overflow-y-auto bg-slate-50"><DocumentationPage /></div>} />

@@ -56,16 +56,27 @@ const AccessRequestsPage: React.FC<AccessRequestsPageProps> = ({ requests, onApp
                 </div>
                 
                 <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1">Solicitou acesso a:</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1">
+                    {req.resourceCategory === 'Promoção' ? 'Solicitou promoção de:' : 'Solicitou acesso a:'}
+                  </div>
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
                       {req.resourceName}
                     </div>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      req.resourceCategory === 'Promoção' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'
+                    }`}>
                       {req.resourceCategory}
                     </span>
                   </div>
                 </div>
+
+                {req.resourceCategory === 'Promoção' && (
+                  <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2">
+                    <Icons.Settings className="w-3 h-3 text-indigo-600" />
+                    <div className="text-[10px] font-bold text-indigo-800">Aprovação irá criar task no backlog do Jira</div>
+                  </div>
+                )}
 
                 {req.reason && (
                   <div className="text-xs text-slate-500 italic mb-4 line-clamp-2">

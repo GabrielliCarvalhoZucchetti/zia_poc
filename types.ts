@@ -26,6 +26,16 @@ export enum ResourceEnvironment {
   PRODUCTION = 'PRODUCTION'
 }
 
+export interface ResourceVersion {
+  version: number;
+  name: string;
+  description: string;
+  prompt?: string;
+  webhookUrl?: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
 export interface Resource {
   id: string;
   name: string;
@@ -39,6 +49,10 @@ export interface Resource {
   environment: ResourceEnvironment;
   creatorId: string;
   webhookUrl?: string;
+  projectId?: string;
+  version: number;
+  updatedAt: string;
+  history?: ResourceVersion[];
 }
 
 export interface Attachment {
@@ -66,15 +80,46 @@ export interface Conversation {
   updatedAt: string;
 }
 
+export interface Comment {
+  id: string;
+  user: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface Subtask {
+  id: string;
+  title: string;
+  description: string;
+  type: 'Melhoria' | 'Bug' | 'Tarefa' | 'Novo Recurso';
+  priority: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  status: 'Pendente' | 'Em Andamento' | 'Concluído';
+  createdAt: string;
+}
+
+export interface ProjectAttachment {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  url: string;
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   title: string;
   description: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
+  status: 'TRIAGEM' | 'REFINAMENTO' | 'DEV_SOLICITANTE' | 'DESENVOLVIMENTO' | 'MONITORAMENTO' | 'AG_SOLICITANTE' | 'IMPEDIDO' | 'CONCLUIDO' | 'CANCELADO';
   scope: string;
   metrics: string;
   deadline: string;
   user: string;
+  email?: string;
+  type?: 'Agente' | 'Assistente' | 'Automação';
+  comments?: Comment[];
+  subtasks?: Subtask[];
+  attachments?: ProjectAttachment[];
 }
 
 export interface User {
@@ -92,8 +137,9 @@ export interface AccessRequest {
   userBU: 'Comercial' | 'Administração' | 'Staff' | 'ERP' | 'POS' | 'HR TECH';
   resourceId: string;
   resourceName: string;
-  resourceCategory: 'Agente' | 'Assistente' | 'Automação';
+  resourceCategory: 'Agente' | 'Assistente' | 'Automação' | 'Promoção';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   timestamp: string;
   reason?: string;
+  metadata?: any;
 }

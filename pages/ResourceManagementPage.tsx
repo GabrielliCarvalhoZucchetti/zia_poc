@@ -1,33 +1,41 @@
 
 import React, { useState } from 'react';
-import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User } from '../types';
+import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User, Project } from '../types';
 import { Icons } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
 
 interface ResourceManagementPageProps {
   user: User;
   resources: Resource[];
+  projects: Project[];
   onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId'>) => void;
   onUpdateResource: (resource: Resource) => void;
   onDeleteResource: (id: string) => void;
+  onCreateRequest: (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => void;
 }
 
 const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({ 
   user,
   resources, 
+  projects,
   onCreateResource, 
   onUpdateResource,
-  onDeleteResource 
+  onDeleteResource,
+  onCreateRequest
 }) => {
+  const hasLinkedProject = projects.some(p => p.user === user.name);
+  const isAdministrator = user.role === UserRole.ADMINISTRATOR;
+
   const filteredResources = resources.filter(r => 
     r.type !== ResourceType.MARKET_MODEL && 
-    (r.creatorId === user.id || user.role === UserRole.ADMINISTRATOR)
+    (r.creatorId === user.id || isAdministrator)
   );
   const [showModal, setShowModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [createType, setCreateType] = useState<ResourceType>(ResourceType.AGENT);
   
   const [name, setName] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [description, setDescription] = useState('');
   const [agentType, setAgentType] = useState<AgentType>(AgentType.READING);
   const [requiredRole, setRequiredRole] = useState<UserRole>(UserRole.BASIC);
@@ -35,6 +43,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
   const [webhookUrl, setWebhookUrl] = useState('');
   const [linkedDocs, setLinkedDocs] = useState<string[]>([]);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState<Resource | null>(null);
 
   const handleImprovePrompt = async () => {
     if (!prompt.trim()) return;
@@ -66,23 +75,36 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
     setPrompt(res.prompt || '');
     setWebhookUrl(res.webhookUrl || '');
     setLinkedDocs(res.linkedDocs || []);
+    setProjectId(res.projectId || '');
     setShowModal(true);
   };
 
   const handlePromoteToProduction = (res: Resource) => {
-    onUpdateResource({
-      ...res,
-      environment: ResourceEnvironment.PRODUCTION
-    });
+    onCreateRequest(
+      res.id, 
+      res.name, 
+      'Promoção', 
+      `Solicitação de promoção do ambiente de Homologação para Produção. Vincular ao Jira.`
+    );
+    alert("Solicitação de promoção enviada para aprovação do administrador.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validação do ID do Projeto
+    const projectExists = projects.some(p => p.id === projectId);
+    if (!projectExists && !isAdministrator) {
+      alert("ID do Projeto inválido. Por favor, verifique o ID correto na aba Laboratório.");
+      return;
+    }
+
     if (editingResource) {
       onUpdateResource({
         ...editingResource,
         name,
         description,
+        projectId,
         type: createType,
         agentType: createType === ResourceType.AGENT ? agentType : undefined,
         requiredRole,
@@ -94,6 +116,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
       onCreateResource({
         name,
         description,
+        projectId,
         type: createType,
         agentType: createType === ResourceType.AGENT ? agentType : undefined,
         requiredRole,
@@ -109,6 +132,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
   const resetForm = () => {
     setEditingResource(null);
     setName('');
+    setProjectId('');
     setDescription('');
     setPrompt('');
     setWebhookUrl('');
@@ -122,16 +146,24 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
           <h1 className="text-3xl font-bold text-slate-800">Gestão de Recursos</h1>
           <p className="text-slate-500">Crie e configure agentes de IA, assistentes e bancos de documentos vetorizados.</p>
         </div>
-        <button 
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-sky-200 transition-all"
-        >
-          <Icons.Plus />
-          Novo Recurso
-        </button>
+        <div className="flex items-center gap-4">
+          {!hasLinkedProject && !isAdministrator && (
+            <div className="text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100 animate-pulse">
+              ⚠️ Requer projeto vinculado no AI LAB para criar recursos
+            </div>
+          )}
+          <button 
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            disabled={!hasLinkedProject && !isAdministrator}
+            className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-sky-200 transition-all disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+          >
+            <Icons.Plus />
+            Novo Recurso
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
@@ -166,7 +198,8 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
               <th className="px-6 py-4">Recurso</th>
               <th className="px-6 py-4">Tipo</th>
               <th className="px-6 py-4">Ambiente</th>
-              <th className="px-6 py-4">Criado em</th>
+              <th className="px-6 py-4">Versões</th>
+              <th className="px-6 py-4">Última Atualização</th>
               <th className="px-6 py-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -199,21 +232,41 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                     </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-xs text-slate-400">{res.createdAt}</td>
+                <td className="px-6 py-4 text-xs text-slate-400">
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold text-slate-600">v{res.version}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-400">{res.updatedAt}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button 
-                      onClick={() => handleEdit(res)}
-                      className="p-2 text-slate-400 hover:text-sky-600 transition-colors"
+                      onClick={() => setShowHistoryModal(res)}
+                      className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      title="Ver Histórico de Versões"
                     >
-                      <Icons.Edit />
+                      <Icons.History />
                     </button>
-                    <button 
-                      onClick={() => onDeleteResource(res.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                    >
-                      <Icons.Trash />
-                    </button>
+                    {(res.creatorId === user.id || isAdministrator) ? (
+                      <>
+                        <button 
+                          onClick={() => handleEdit(res)}
+                          className="p-2 text-slate-400 hover:text-sky-600 transition-colors"
+                          title="Editar Recurso"
+                        >
+                          <Icons.Edit />
+                        </button>
+                        <button 
+                          onClick={() => onDeleteResource(res.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Excluir Recurso"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Somente Leitura</div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -221,6 +274,58 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
           </tbody>
         </table>
       </div>
+
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowHistoryModal(null)}></div>
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Icons.History className="w-5 h-5 text-indigo-600" />
+                Versões: {showHistoryModal.name}
+              </h2>
+              <button onClick={() => setShowHistoryModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <Icons.X />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-indigo-800 uppercase">Versão Atual (v{showHistoryModal.version})</div>
+                  <div className="text-[10px] text-indigo-600">Atualizado em {showHistoryModal.updatedAt}</div>
+                </div>
+                <div className="text-[10px] font-bold bg-indigo-600 text-white px-2 py-1 rounded">ATIVO</div>
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Versões Anteriores</h3>
+                {(!showHistoryModal.history || showHistoryModal.history.length === 0) ? (
+                  <div className="text-center py-8 text-slate-400 text-xs italic">Nenhuma versão anterior encontrada.</div>
+                ) : (
+                  showHistoryModal.history.map((h, i) => (
+                    <div key={i} className="bg-white border border-slate-200 p-4 rounded-xl hover:border-slate-300 transition-all group">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800">Versão {h.version}</span>
+                          <span className="text-[10px] text-slate-400">•</span>
+                          <span className="text-[10px] text-slate-500 font-medium">{h.updatedAt}</span>
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400">Por {h.updatedBy}</div>
+                      </div>
+                      <div className="text-xs text-slate-600 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        {h.description}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button onClick={() => setShowHistoryModal(null)} className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -236,26 +341,20 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
             </div>
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
-              {!editingResource && (
-                <div className="flex gap-4 p-1 bg-slate-100 rounded-xl mb-4">
-                  <button 
-                    type="button"
-                    onClick={() => setCreateType(ResourceType.AGENT)}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${createType === ResourceType.AGENT ? 'bg-white shadow text-sky-600' : 'text-slate-500'}`}
-                  >
-                    Agente / Assistente
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setCreateType(ResourceType.DOCUMENTATION)}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${createType === ResourceType.DOCUMENTATION ? 'bg-white shadow text-sky-600' : 'text-slate-500'}`}
-                  >
-                    Documentação
-                  </button>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">ID do Projeto (AI LAB)</label>
+                  <input 
+                    required 
+                    value={projectId} 
+                    onChange={e => setProjectId(e.target.value)} 
+                    type="text" 
+                    placeholder="Ex: 1, 2, 3..." 
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono" 
+                  />
+                  <p className="text-[10px] text-slate-400 italic">O ID deve corresponder a um projeto existente no Laboratório.</p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">Título do Recurso</label>
                   <input required value={name} onChange={e => setName(e.target.value)} type="text" placeholder="Ex: Assistente de Vendas" className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" />
@@ -340,6 +439,22 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                                 <div className="text-xs font-bold text-slate-700">{doc.name}</div>
                                 <div className="text-[10px] text-slate-400 truncate">{doc.description}</div>
                               </div>
+                              {(doc.creatorId === user.id || isAdministrator) && (
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (confirm(`Deseja realmente excluir o documento "${doc.name}"? Esta ação é irreversível.`)) {
+                                      onDeleteResource(doc.id);
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-300 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                                  title="Excluir Documento Permanentemente"
+                                >
+                                  <Icons.Trash />
+                                </button>
+                              )}
                             </label>
                           ))}
                         </div>
