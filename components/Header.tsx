@@ -42,9 +42,9 @@ const Header: React.FC<HeaderProps> = ({
                 setShowResourceMenu(!showResourceMenu);
                 setShowMarketMenu(false);
               }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-sm font-medium ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
                 activeResource && activeResource.type !== ResourceType.MARKET_MODEL
-                ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm'
+                ? 'border-blue-700 bg-sky-50 text-blue-700 shadow-sm'
                 : 'border-slate-200 hover:bg-slate-50 text-slate-700'
               }`}
             >
@@ -104,14 +104,14 @@ const Header: React.FC<HeaderProps> = ({
                 setShowMarketMenu(!showMarketMenu);
                 setShowResourceMenu(false);
               }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-sm font-medium ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
                 activeResource && activeResource.type === ResourceType.MARKET_MODEL
-                ? 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm'
+                ? 'border-blue-700 bg-indigo-50 text-blue-700 shadow-sm'
                 : 'border-slate-200 hover:bg-slate-50 text-slate-700'
               }`}
             >
               <Icons.Plus />
-              <span>{activeResource && activeResource.type === ResourceType.MARKET_MODEL ? activeResource.name : 'Outros'}</span>
+              <span>{activeResource && activeResource.type === ResourceType.MARKET_MODEL ? activeResource.name : 'Chat Livre com Modelos'}</span>
               <svg className={`w-4 h-4 transition-transform ${showMarketMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
 
@@ -119,7 +119,7 @@ const Header: React.FC<HeaderProps> = ({
               <div className="absolute left-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2">
                 <div className="p-3 border-b border-slate-100 bg-indigo-50/50">
                   <div className="text-xs font-bold text-indigo-800">Modelos de Mercado</div>
-                  <div className="text-[10px] text-indigo-600 font-medium">Integração com LLMs externas</div>
+                  <div className="text-[10px] text-indigo-600 font-medium">Integração com LLMs externos</div>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   {marketModels.map(res => (

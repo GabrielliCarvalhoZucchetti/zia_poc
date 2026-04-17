@@ -11,6 +11,7 @@ import LabPage from './pages/LabPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import MonitoringPage from './pages/MonitoringPage';
 import AccessRequestsPage from './pages/AccessRequestsPage';
+import AppsPage from './pages/AppsPage';
 
 const INITIAL_PROJECTS: Project[] = [
   { 
@@ -207,11 +208,22 @@ const App: React.FC = () => {
   };
 
   const handleAddMessage = (convId: string, message: Message) => {
-    setConversations(prev => prev.map(conv => 
-      conv.id === convId 
-      ? { ...conv, messages: [...conv.messages, message], updatedAt: new Date().toLocaleTimeString() }
-      : conv
-    ));
+    setConversations(prev => prev.map(conv => {
+      if (conv.id === convId) {
+        const isFirstMessage = conv.messages.length === 0;
+        const newTitle = isFirstMessage 
+          ? (message.content.length > 40 ? message.content.substring(0, 40) + '...' : message.content)
+          : conv.title;
+          
+        return { 
+          ...conv, 
+          messages: [...conv.messages, message], 
+          updatedAt: new Date().toLocaleTimeString(),
+          title: newTitle
+        };
+      }
+      return conv;
+    }));
   };
 
   const handleApproveRequest = (id: string) => {
@@ -363,6 +375,7 @@ const App: React.FC = () => {
                   <Navigate to="/chat" replace />
                 )
               } />
+              <Route path="/apps" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AppsPage /></div>} />
             </Routes>
           </main>
         </div>
