@@ -13,6 +13,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
   const menuItems = [
     { path: '/chat', label: 'Playground', icon: <Icons.Chat /> },
+    { path: '/apps', label: 'Aplicações', icon: <Icons.Apps /> },
     { path: '/resources', label: 'Gestão de Recursos', icon: <Icons.AgentBuilder /> },
     { path: '/lab', label: 'Laboratório', icon: <Icons.Lab /> },
     { path: '/monitoring', label: 'Monitoramento', icon: <Icons.Monitoring /> },

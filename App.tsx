@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -12,6 +12,9 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import MonitoringPage from './pages/MonitoringPage';
 import AccessRequestsPage from './pages/AccessRequestsPage';
 import AppsPage from './pages/AppsPage';
+import WhatsAppMonitorPage from './pages/WhatsAppMonitorPage';
+import ItauLeadUploadPage from './pages/ItauLeadUploadPage';
+import ZnoteLayout from './pages/znote/ZnoteLayout';
 
 const INITIAL_PROJECTS: Project[] = [
   { 
@@ -75,7 +78,7 @@ const INITIAL_REQUESTS: AccessRequest[] = [
   }
 ];
 
-const App: React.FC = () => {
+const AppInner: React.FC = () => {
   const [user, setUser] = useState<User>({
     id: 'u1',
     name: 'Joao Silva',
@@ -308,9 +311,8 @@ const App: React.FC = () => {
   }, [visibleResources, activeResource]);
 
   return (
-    <Router>
-      <div className="flex h-screen overflow-hidden bg-white">
-        <Sidebar userRole={user.role} />
+    <div className="flex h-screen overflow-hidden bg-white">
+      <Sidebar userRole={user.role} />
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Header 
@@ -376,10 +378,20 @@ const App: React.FC = () => {
                 )
               } />
               <Route path="/apps" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AppsPage /></div>} />
+              <Route path="/whatsapp-monitor" element={<WhatsAppMonitorPage />} />
+              <Route path="/itau-upload" element={<ItauLeadUploadPage />} />
+              <Route path="/znote/*" element={<ZnoteLayout />} />
             </Routes>
           </main>
         </div>
       </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <AppInner />
     </Router>
   );
 };
