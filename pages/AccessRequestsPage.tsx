@@ -71,6 +71,24 @@ const AccessRequestsPage: React.FC<AccessRequestsPageProps> = ({ requests, onApp
                   </div>
                 </div>
 
+                {req.requiresDoubleApproval && (
+                  <div className="mb-4 space-y-2">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status da Aprovação Dupla</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className={`p-2 rounded-lg border text-center transition-all ${req.ownerApproved ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                        <div className="text-[8px] font-bold uppercase">Gestor do Recurso</div>
+                        <div className="text-[10px] font-medium truncate">{req.resourceOwnerEmail || 'Pendente'}</div>
+                        {req.ownerApproved && <div className="text-[8px] font-bold mt-1 text-emerald-500">APROVADO</div>}
+                      </div>
+                      <div className={`p-2 rounded-lg border text-center transition-all ${req.iaTeamApproved ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                        <div className="text-[8px] font-bold uppercase">Time de IA</div>
+                        <div className="text-[10px] font-medium">ia.team@zucchetti.com</div>
+                        {req.iaTeamApproved && <div className="text-[8px] font-bold mt-1 text-emerald-500">APROVADO</div>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {req.resourceCategory === 'Promoção' && (
                   <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2">
                     <Icons.Settings className="w-3 h-3 text-indigo-600" />
@@ -95,7 +113,9 @@ const AccessRequestsPage: React.FC<AccessRequestsPageProps> = ({ requests, onApp
                     onClick={() => onApprove(req.id)}
                     className="flex-1 py-2 text-xs font-bold text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-all shadow-lg shadow-sky-100"
                   >
-                    Aprovar
+                    {req.requiresDoubleApproval 
+                      ? (!req.ownerApproved ? 'Aprovar (Gestor)' : 'Aprovar (IA)') 
+                      : 'Aprovar'}
                   </button>
                 </div>
               </div>
@@ -132,7 +152,14 @@ const AccessRequestsPage: React.FC<AccessRequestsPageProps> = ({ requests, onApp
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-slate-600 font-medium">{req.resourceName}</div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">{req.resourceCategory}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{req.resourceCategory}</span>
+                        {req.requiresDoubleApproval && (
+                          <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100">
+                            DUPLA APROVAÇÃO
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-mono text-slate-500">{req.timestamp}</td>
                     <td className="px-6 py-4 text-right">

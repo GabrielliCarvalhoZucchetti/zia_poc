@@ -9,7 +9,7 @@ import ResourceManagementPage from './pages/ResourceManagementPage';
 import DocumentationPage from './pages/DocumentationPage';
 import LabPage from './pages/LabPage';
 import AuditLogsPage from './pages/AuditLogsPage';
-import MonitoringPage from './pages/MonitoringPage';
+import ZiaMonitoringPage from './pages/ZiaMonitoringPage';
 import AccessRequestsPage from './pages/AccessRequestsPage';
 import AppsPage from './pages/AppsPage';
 import WhatsAppMonitorPage from './pages/WhatsAppMonitorPage';
@@ -61,7 +61,11 @@ const INITIAL_REQUESTS: AccessRequest[] = [
     resourceCategory: 'Agente',
     status: 'PENDING', 
     timestamp: '2025-05-11 09:15:00',
-    reason: 'Preciso atualizar os dados de faturamento do mês passado.'
+    reason: 'Preciso atualizar os dados de faturamento do mês passado.',
+    requiresDoubleApproval: true,
+    ownerApproved: false,
+    iaTeamApproved: false,
+    resourceOwnerEmail: 'infra@zucchetti.com.br'
   },
   { 
     id: 'req2', 
@@ -231,13 +235,34 @@ const AppInner: React.FC = () => {
 
   const handleApproveRequest = (id: string) => {
     const request = accessRequests.find(req => req.id === id);
-    
-    setAccessRequests(prev => prev.map(req => 
-      req.id === id ? { ...req, status: 'APPROVED' } : req
-    ));
+    if (!request) return;
+
+    if (request.requiresDoubleApproval) {
+      // Se requer aprovação dupla, verifica qual status deve ser atualizado
+      // Para fins de protótipo, vamos simular que o administrador atual (Joao Silva) aprova uma das etapas
+      setAccessRequests(prev => prev.map(req => {
+        if (req.id === id) {
+          const updatedReq = { ...req };
+          if (!updatedReq.ownerApproved) {
+            updatedReq.ownerApproved = true;
+          } else if (!updatedReq.iaTeamApproved) {
+            updatedReq.iaTeamApproved = true;
+            updatedReq.status = 'APPROVED';
+          }
+          return updatedReq;
+        }
+        return req;
+      }));
+    } else {
+      setAccessRequests(prev => prev.map(req => 
+        req.id === id ? { ...req, status: 'APPROVED' } : req
+      ));
+    }
+
+    const updatedRequest = accessRequests.find(req => req.id === id);
 
     // Se for uma solicitação de promoção, atualiza o ambiente do recurso
-    if (request && request.resourceCategory === 'Promoção') {
+    if (request && request.resourceCategory === 'Promoção' && (!request.requiresDoubleApproval || (updatedRequest && updatedRequest.status === 'APPROVED'))) {
       setResources(prev => prev.map(res => 
         res.id === request.resourceId ? { ...res, environment: ResourceEnvironment.PRODUCTION } : res
       ));
@@ -264,6 +289,12 @@ const AppInner: React.FC = () => {
   };
 
   const handleCreateRequest = async (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => {
+    const isGestorDeBase = resourceName === 'Gestor de Base';
+    const resource = resources.find(r => r.id === resourceId);
+    
+    // Simular o email do criador (em um app real seria buscado via API)
+    const resourceOwnerEmail = isGestorDeBase ? 'infra@zucchetti.com.br' : (resource?.creatorId === 'system' ? 'suporte@zucchetti.com.br' : 'usuario@zucchetti.com.br');
+
     const newRequest: AccessRequest = {
       id: `req-${Date.now()}`,
       userId: user.id,
@@ -275,7 +306,11 @@ const AppInner: React.FC = () => {
       resourceCategory: category,
       status: 'PENDING',
       timestamp: new Date().toLocaleString(),
-      reason: reason || 'Solicitação via interface do sistema.'
+      reason: reason || 'Solicitação via interface do sistema.',
+      requiresDoubleApproval: isGestorDeBase,
+      ownerApproved: false,
+      iaTeamApproved: false,
+      resourceOwnerEmail: resourceOwnerEmail
     };
 
     setAccessRequests(prev => [newRequest, ...prev]);
@@ -362,7 +397,7 @@ const AppInner: React.FC = () => {
                 </div>
               } />
               <Route path="/audit" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AuditLogsPage /></div>} />
-              <Route path="/monitoring" element={<div className="flex-1 overflow-y-auto bg-slate-50"><MonitoringPage systemWebhookUrl={systemWebhookUrl} onUpdateSystemWebhook={setSystemWebhookUrl} /></div>} />
+              <Route path="/zia-monitoring" element={<ZiaMonitoringPage />} />
               <Route path="/docs" element={<div className="flex-1 overflow-y-auto bg-slate-50"><DocumentationPage /></div>} />
               <Route path="/access-requests" element={
                 user.role === UserRole.ADMINISTRATOR ? (

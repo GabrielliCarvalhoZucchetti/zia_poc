@@ -40,6 +40,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
   const [agentType, setAgentType] = useState<AgentType>(AgentType.READING);
   const [requiredRole, setRequiredRole] = useState<UserRole>(UserRole.BASIC);
   const [prompt, setPrompt] = useState('');
+  const [model, setModel] = useState('Gemini 1.5 Flash');
   const [webhookUrl, setWebhookUrl] = useState('');
   const [linkedDocs, setLinkedDocs] = useState<string[]>([]);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
@@ -73,6 +74,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
     setAgentType(res.agentType || AgentType.READING);
     setRequiredRole(res.requiredRole);
     setPrompt(res.prompt || '');
+    setModel(res.model || 'Gemini 1.5 Flash');
     setWebhookUrl(res.webhookUrl || '');
     setLinkedDocs(res.linkedDocs || []);
     setProjectId(res.projectId || '');
@@ -109,6 +111,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
         agentType: createType === ResourceType.AGENT ? agentType : undefined,
         requiredRole,
         prompt,
+        model,
         webhookUrl,
         linkedDocs
       });
@@ -121,6 +124,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
         agentType: createType === ResourceType.AGENT ? agentType : undefined,
         requiredRole,
         prompt,
+        model,
         webhookUrl,
         linkedDocs
       });
@@ -135,6 +139,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
     setProjectId('');
     setDescription('');
     setPrompt('');
+    setModel('Gemini 1.5 Flash');
     setWebhookUrl('');
     setLinkedDocs([]);
   };
@@ -221,6 +226,11 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                     }`}>
                       {res.type === ResourceType.AGENT ? 'Agente' : 'Documento'}
                     </span>
+                    {res.model && (
+                      <span className="text-[9px] text-slate-400 font-medium px-2 italic">
+                        {res.model}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -365,6 +375,24 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                 <label className="text-xs font-bold text-slate-500 uppercase">Descrição</label>
                 <textarea required value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Breve explicação do propósito deste recurso..." className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
               </div>
+
+              {createType === ResourceType.AGENT && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Modelo de LLM (Motor de IA)</label>
+                  <select 
+                    value={model} 
+                    onChange={e => setModel(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                  >
+                    <option value="GPT-4o">GPT-4o (OpenAI)</option>
+                    <option value="GPT-4o-mini">GPT-4o mini (OpenAI)</option>
+                    <option value="Gemini 1.5 Pro">Gemini 1.5 Pro (Google)</option>
+                    <option value="Gemini 1.5 Flash">Gemini 1.5 Flash (Google)</option>
+                    <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet (Anthropic)</option>
+                    <option value="Claude 3 Haiku">Claude 3 Haiku (Anthropic)</option>
+                  </select>
+                </div>
+              )}
 
               {createType === ResourceType.AGENT && (
                 <div className="space-y-2">

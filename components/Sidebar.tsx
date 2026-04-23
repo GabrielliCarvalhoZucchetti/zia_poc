@@ -16,7 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
     { path: '/apps', label: 'Aplicações', icon: <Icons.Apps /> },
     { path: '/resources', label: 'Gestão de Recursos', icon: <Icons.AgentBuilder /> },
     { path: '/lab', label: 'Laboratório', icon: <Icons.Lab /> },
-    { path: '/monitoring', label: 'Monitoramento', icon: <Icons.Monitoring /> },
+    { path: '/zia-monitoring', label: 'Monitoramento', icon: <Icons.Users /> },
     { path: '/audit', label: 'Auditoria', icon: <Icons.Search /> },
     { path: '/docs', label: 'Documentação', icon: <Icons.Documentation /> },
   ];

@@ -32,6 +32,7 @@ export interface ResourceVersion {
   description: string;
   prompt?: string;
   webhookUrl?: string;
+  model?: string;
   updatedAt: string;
   updatedBy: string;
 }
@@ -45,6 +46,7 @@ export interface Resource {
   requiredRole: UserRole;
   createdAt: string;
   prompt?: string;
+  model?: string;
   linkedDocs?: string[]; // IDs of documentation resources
   environment: ResourceEnvironment;
   creatorId: string;
@@ -129,6 +131,18 @@ export interface User {
   avatar: string;
 }
 
+export interface UserUsage {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  bu?: string;
+  lastActivity: string;
+  interactionsCount: number;
+  accessedResources: string[]; // Names of resources/agents
+  status: 'Ativo' | 'Inativo';
+}
+
 export interface AccessRequest {
   id: string;
   userId: string;
@@ -141,5 +155,9 @@ export interface AccessRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   timestamp: string;
   reason?: string;
+  requiresDoubleApproval?: boolean;
+  ownerApproved?: boolean;
+  iaTeamApproved?: boolean;
+  resourceOwnerEmail?: string;
   metadata?: any;
 }

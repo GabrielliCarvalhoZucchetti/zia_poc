@@ -351,25 +351,6 @@ const ChatPage: React.FC<ChatPageProps> = ({
                     "Pronto para processar sua solicitação."
                   )}
                 </p>
-
-                {activeResource.type !== ResourceType.MARKET_MODEL && (
-                  <div className="grid grid-cols-2 gap-4 w-full max-w-xl">
-                    {[
-                      'Como você funciona?',
-                      'Quais meus limites?',
-                      'Resuma o projeto',
-                      'Próximas ações'
-                    ].map(q => (
-                      <button 
-                        key={q}
-                        onClick={() => setInput(q)}
-                        className="p-4 text-xs font-semibold text-slate-600 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all text-left shadow-sm"
-                      >
-                        "{q}"
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
 
@@ -414,40 +395,82 @@ const ChatPage: React.FC<ChatPageProps> = ({
           <div className="max-w-3xl mx-auto px-4">
             <div className="relative flex flex-col items-center">
               
-              <div className="w-full relative rounded-2xl border border-slate-200 bg-[#F8FAFC] focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-50 transition-all duration-300 overflow-hidden">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder={`Envie uma mensagem para ${activeResource.name}...`}
-                  className="w-full bg-transparent px-6 py-5 pr-40 text-slate-800 placeholder:text-slate-400 focus:outline-none resize-none min-h-[64px] max-h-[200px] text-sm leading-relaxed"
-                  rows={1}
-                />
-                
-                <div className="absolute right-4 bottom-4 flex items-center gap-3">
-                  <button onClick={() => fileInputRef.current?.click()} className="text-slate-300 hover:text-slate-500 transition-colors">
-                    <Icons.Paperclip />
-                  </button>
-                  <button onClick={() => setShowLinkModal(true)} className="text-slate-300 hover:text-slate-500 transition-colors">
-                    <Icons.Link />
-                  </button>
-                  <button className="text-slate-300 hover:text-slate-500 transition-colors">
-                    <Icons.Mic />
-                  </button>
+              {activeResource.name === 'Gestor de Base' && !requestSent ? (
+                <div className="w-full flex flex-col items-center gap-6 py-6 bg-sky-50/50 rounded-[24px] border border-sky-100 animate-in fade-in zoom-in duration-500">
+                  <div className="w-16 h-16 bg-white text-sky-600 rounded-2xl flex items-center justify-center shadow-sm border border-sky-100">
+                    <Icons.Lock className="w-8 h-8" />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-bold text-slate-800">Uso sob Demanda: Gestor de Base</h3>
+                    <p className="text-xs text-slate-500 max-w-sm px-4">
+                      Este agente requer aprovação dupla (Gestor do Recurso e Time de IA) para ser utilizado. Clique abaixo para iniciar o processo de solicitação.
+                    </p>
+                  </div>
                   <button 
-                    onClick={handleSend}
-                    disabled={!input.trim()}
-                    className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all disabled:bg-slate-50 disabled:text-slate-300"
+                    onClick={() => {
+                      if (onCreateRequest) {
+                        onCreateRequest(
+                          activeResource.id, 
+                          activeResource.name, 
+                          'Agente',
+                          'Solicitação de acesso ao Gestor de Base para análise de indicadores. Requer aprovação do proprietário e do Time de IA.'
+                        );
+                        setRequestSent(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold shadow-lg shadow-sky-200 transition-all"
                   >
-                    <Icons.Send />
+                    <Icons.Check className="w-4 h-4" />
+                    Solicitar Uso do Agente
                   </button>
+                  <p className="text-[10px] text-slate-400 font-medium">A aprovação será enviada ao responsável pelo recurso e ao Time de IA.</p>
                 </div>
-              </div>
+              ) : requestSent ? (
+                <div className="w-full flex items-center gap-4 p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <div className="w-10 h-10 bg-white text-emerald-500 rounded-xl flex items-center justify-center shadow-sm border border-emerald-100">
+                    <Icons.Check className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-emerald-800">Solicitação Enviada com Sucesso</div>
+                    <div className="text-xs text-emerald-600">Acompanhe o status em "Solicitações de Acesso". Fluxo de aprovação dupla iniciado.</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full relative rounded-2xl border border-slate-200 bg-[#F8FAFC] focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-50 transition-all duration-300 overflow-hidden">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={`Envie uma mensagem para ${activeResource.name}...`}
+                    className="w-full bg-transparent px-6 py-5 pr-40 text-slate-800 placeholder:text-slate-400 focus:outline-none resize-none min-h-[64px] max-h-[200px] text-sm leading-relaxed"
+                    rows={1}
+                  />
+                  
+                  <div className="absolute right-4 bottom-4 flex items-center gap-3">
+                    <button onClick={() => fileInputRef.current?.click()} className="text-slate-300 hover:text-slate-500 transition-colors">
+                      <Icons.Paperclip />
+                    </button>
+                    <button onClick={() => setShowLinkModal(true)} className="text-slate-300 hover:text-slate-500 transition-colors">
+                      <Icons.Link />
+                    </button>
+                    <button className="text-slate-300 hover:text-slate-500 transition-colors">
+                      <Icons.Mic />
+                    </button>
+                    <button 
+                      onClick={handleSend}
+                      disabled={!input.trim()}
+                      className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all disabled:bg-slate-50 disabled:text-slate-300"
+                    >
+                      <Icons.Send />
+                    </button>
+                  </div>
+                </div>
+              )}
               
               <div className="mt-4 text-[10px] text-slate-400 font-medium tracking-tight">
                 ZIA pode cometer erros. Considere verificar informações importantes.
