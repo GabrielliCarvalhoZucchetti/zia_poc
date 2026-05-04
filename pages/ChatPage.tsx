@@ -343,14 +343,6 @@ const ChatPage: React.FC<ChatPageProps> = ({
                 </div>
                 
                 <h2 className="text-3xl font-bold text-slate-900 mb-5 tracking-tight">O que posso fazer como {activeResource.name}?</h2>
-                
-                <p className="text-slate-500 text-base max-w-2xl mb-12 leading-relaxed">
-                  {activeResource.type !== ResourceType.MARKET_MODEL ? (
-                    "Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões. Identifica automaticamente o especialista necessário para sua pergunta, permitindo também a seleção manual de qualquer assistente ao qual você tenha acesso."
-                  ) : (
-                    "Pronto para processar sua solicitação."
-                  )}
-                </p>
               </div>
             )}
 

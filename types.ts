@@ -131,6 +131,30 @@ export interface User {
   avatar: string;
 }
 
+export interface ApiInteractionLog {
+  id: string;
+  author: string; // Agent/Resource name
+  apiKeyName: string;
+  input: string;
+  model: string;
+  output: string;
+  timestamp: string;
+  tokens?: number;
+  cost?: number;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  resourceId: string;
+  resourceName: string;
+  key: string; // Masked key
+  status: 'Ativa' | 'Revogada';
+  createdAt: string;
+  lastUsed?: string;
+  usageCount: number;
+}
+
 export interface UserUsage {
   id: string;
   name: string;

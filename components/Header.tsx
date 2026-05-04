@@ -71,8 +71,7 @@ const Header: React.FC<HeaderProps> = ({
                   </div>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agentes & Documentos</div>
-                  {mainResources.map(res => (
+                    {mainResources.map(res => (
                     <button
                       key={res.id}
                       onClick={() => {
@@ -88,7 +87,6 @@ const Header: React.FC<HeaderProps> = ({
                             <span className="text-[8px] font-bold px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded border border-amber-100 uppercase">Homologação</span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 line-clamp-1">{res.description}</div>
                       </div>
                     </button>
                   ))}
@@ -117,10 +115,6 @@ const Header: React.FC<HeaderProps> = ({
 
             {showMarketMenu && (
               <div className="absolute left-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                <div className="p-3 border-b border-slate-100 bg-indigo-50/50">
-                  <div className="text-xs font-bold text-indigo-800">Modelos de Mercado</div>
-                  <div className="text-[10px] text-indigo-600 font-medium">Integração com LLMs externos</div>
-                </div>
                 <div className="max-h-64 overflow-y-auto">
                   {marketModels.map(res => (
                     <button
@@ -133,7 +127,6 @@ const Header: React.FC<HeaderProps> = ({
                     >
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-slate-700">{res.name}</div>
-                        <div className="text-[10px] text-slate-500 line-clamp-1">{res.description}</div>
                       </div>
                     </button>
                   ))}

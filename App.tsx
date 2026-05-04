@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask } from './types';
+import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask, ResourceVersion } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
+import HomePage from './pages/HomePage';
 import ResourceManagementPage from './pages/ResourceManagementPage';
 import DocumentationPage from './pages/DocumentationPage';
 import LabPage from './pages/LabPage';
@@ -40,8 +41,47 @@ const INITIAL_PROJECTS: Project[] = [
 ];
 
 const INITIAL_RESOURCES: Resource[] = [
-  { id: 'r1', name: 'Assistente Geral', description: 'Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões. Identifica automaticamente o especialista necessário para sua pergunta, permitindo também a seleção manual de qualquer assistente ao qual você tenha acesso.', type: ResourceType.AGENT, agentType: AgentType.READING, requiredRole: UserRole.BASIC, createdAt: '2025-01-10', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-01-10', projectId: 'r1' },
-  { id: 'r2', name: 'Doc ClippPro', description: 'Documentação oficial do produto.', type: ResourceType.DOCUMENTATION, requiredRole: UserRole.BASIC, createdAt: '2025-01-12', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-01-12', projectId: 'r2' },
+  { 
+    id: 'r1', 
+    name: 'Assistente Geral', 
+    description: 'Assistente central conectado a todos os agentes disponíveis de acordo com seu perfil e permissões. Identifica automaticamente o especialista necessário para sua pergunta, permitindo também a seleção manual de qualquer assistente ao qual você tenha acesso.', 
+    type: ResourceType.AGENT, 
+    agentType: AgentType.READING, 
+    requiredRole: UserRole.BASIC, 
+    createdAt: '2025-01-10', 
+    environment: ResourceEnvironment.PRODUCTION, 
+    creatorId: 'system', 
+    version: 2, 
+    updatedAt: '2025-01-20', 
+    projectId: 'r1',
+    history: [
+      {
+        version: 1,
+        name: 'Assistente Geral (Initial)',
+        description: 'Primeira versão do assistente central.',
+        prompt: 'Você é um assistente prestativo.',
+        updatedAt: '2025-01-10',
+        updatedBy: 'system'
+      }
+    ]
+  },
+  { 
+    id: 'r2', 
+    name: 'Doc ClippPro', 
+    description: 'Documentação oficial do produto.', 
+    type: ResourceType.DOCUMENTATION, 
+    requiredRole: UserRole.BASIC, 
+    createdAt: '2025-01-12', 
+    environment: ResourceEnvironment.PRODUCTION, 
+    creatorId: 'system', 
+    version: 3, 
+    updatedAt: '2025-02-15', 
+    projectId: 'r2',
+    history: [
+      { version: 2, name: 'Doc ClippPro v2', description: 'Atualização de manuais 2024.', updatedAt: '2025-02-01', updatedBy: 'system' },
+      { version: 1, name: 'Doc ClippPro v1', description: 'Carga inicial de documentação.', updatedAt: '2025-01-12', updatedBy: 'system' }
+    ]
+  },
   { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
   { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
   { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
@@ -120,12 +160,15 @@ const AppInner: React.FC = () => {
     setResources(prev => prev.map(r => {
       if (r.id === updatedRes.id) {
         const now = new Date().toLocaleString();
-        const newVersion = {
+        
+        // Criar entrada de histórico da versão ATUAL antes de atualizar
+        const historyEntry: ResourceVersion = {
           version: r.version,
           name: r.name,
           description: r.description,
           prompt: r.prompt,
           webhookUrl: r.webhookUrl,
+          model: r.model,
           updatedAt: r.updatedAt,
           updatedBy: user.name
         };
@@ -134,11 +177,44 @@ const AppInner: React.FC = () => {
           ...updatedRes,
           version: r.version + 1,
           updatedAt: now,
-          history: [newVersion, ...(r.history || [])]
+          history: [historyEntry, ...(r.history || [])]
         };
       }
       return r;
     }));
+  };
+
+  const handleRollbackResource = (resourceId: string, version: number) => {
+    setResources(prev => prev.map(r => {
+      if (r.id === resourceId) {
+        const versionToRestore = r.history?.find(h => h.version === version);
+        if (!versionToRestore) return r;
+
+        const now = new Date().toLocaleString();
+        
+        // Salva a versão atual no histórico antes de voltar
+        const currentAsHistory: ResourceVersion = {
+          version: r.version,
+          name: r.name,
+          description: r.description,
+          prompt: r.prompt,
+          webhookUrl: r.webhookUrl,
+          model: r.model,
+          updatedAt: r.updatedAt,
+          updatedBy: user.name
+        };
+
+        return {
+          ...r,
+          ...versionToRestore,
+          version: r.version + 1, // Incrementar a versão ao restaurar também
+          updatedAt: now,
+          history: [currentAsHistory, ...(r.history?.filter(h => h.version !== version) || [])]
+        };
+      }
+      return r;
+    }));
+    alert(`Recurso restaurado com sucesso para a versão ${version}.`);
   };
 
   const handleCreateProject = (project: Omit<Project, 'id' | 'user'>) => {
@@ -361,7 +437,8 @@ const AppInner: React.FC = () => {
           {/* Removido o overflow-y-auto global para permitir que o Chat controle seu próprio scroll de 100% de altura */}
           <main className="flex-1 flex flex-col overflow-hidden">
             <Routes>
-              <Route path="/" element={<Navigate to="/chat" replace />} />
+              <Route path="/" element={<Navigate to="/home" replace />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/chat" element={
                 <ChatPage 
                   user={user} 
@@ -382,6 +459,7 @@ const AppInner: React.FC = () => {
                     onUpdateResource={handleUpdateResource}
                     onDeleteResource={handleDeleteResource}
                     onCreateRequest={handleCreateRequest}
+                    onRollback={handleRollbackResource}
                   />
                 </div>
               } />

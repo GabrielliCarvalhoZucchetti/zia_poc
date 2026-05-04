@@ -8,10 +8,11 @@ interface ResourceManagementPageProps {
   user: User;
   resources: Resource[];
   projects: Project[];
-  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId'>) => void;
+  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'>) => void;
   onUpdateResource: (resource: Resource) => void;
   onDeleteResource: (id: string) => void;
   onCreateRequest: (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => void;
+  onRollback?: (resourceId: string, version: number) => void;
 }
 
 const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({ 
@@ -21,7 +22,8 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
   onCreateResource, 
   onUpdateResource,
   onDeleteResource,
-  onCreateRequest
+  onCreateRequest,
+  onRollback
 }) => {
   const hasLinkedProject = projects.some(p => p.user === user.name);
   const isAdministrator = user.role === UserRole.ADMINISTRATOR;
@@ -201,7 +203,6 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
           <thead>
             <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
               <th className="px-6 py-4">Recurso</th>
-              <th className="px-6 py-4">Tipo</th>
               <th className="px-6 py-4">Ambiente</th>
               <th className="px-6 py-4">Versões</th>
               <th className="px-6 py-4">Última Atualização</th>
@@ -215,22 +216,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                   <div className="flex items-center gap-4">
                     <div>
                       <div className="text-sm font-bold text-slate-800">{res.name}</div>
-                      <div className="text-xs text-slate-400 max-w-xs truncate">{res.description}</div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-fit mb-1 ${
-                      res.type === ResourceType.AGENT ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'
-                    }`}>
-                      {res.type === ResourceType.AGENT ? 'Agente' : 'Documento'}
-                    </span>
-                    {res.model && (
-                      <span className="text-[9px] text-slate-400 font-medium px-2 italic">
-                        {res.model}
-                      </span>
-                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -320,7 +306,22 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                           <span className="text-[10px] text-slate-400">•</span>
                           <span className="text-[10px] text-slate-500 font-medium">{h.updatedAt}</span>
                         </div>
-                        <div className="text-[10px] font-bold text-slate-400">Por {h.updatedBy}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-[10px] font-bold text-slate-400">Por {h.updatedBy}</div>
+                          {onRollback && (
+                            <button 
+                              onClick={() => {
+                                if (confirm(`Deseja restaurar para a Versão ${h.version}? A versão atual será salva no histórico.`)) {
+                                  onRollback(showHistoryModal.id, h.version);
+                                  setShowHistoryModal(null);
+                                }
+                              }}
+                              className="text-[10px] font-bold text-sky-600 hover:text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-100 opacity-0 group-hover:opacity-100 transition-all"
+                            >
+                              Restaurar
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-slate-600 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
                         {h.description}
@@ -352,29 +353,44 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
               <div className="grid grid-cols-1 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">ID do Projeto (AI LAB)</label>
-                  <input 
-                    required 
-                    value={projectId} 
-                    onChange={e => setProjectId(e.target.value)} 
-                    type="text" 
-                    placeholder="Ex: 1, 2, 3..." 
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono" 
-                  />
-                  <p className="text-[10px] text-slate-400 italic">O ID deve corresponder a um projeto existente no Laboratório.</p>
-                </div>
+                {!editingResource && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Vincular ao projeto existente</label>
+                    <select 
+                      required 
+                      value={projectId} 
+                      onChange={e => setProjectId(e.target.value)} 
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                    >
+                      <option value="">Selecione um projeto...</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} (ID: {p.id})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400 italic">O recurso deve ser vinculado a um projeto mapeado na aba Laboratório.</p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">Título do Recurso</label>
                   <input required value={name} onChange={e => setName(e.target.value)} type="text" placeholder="Ex: Assistente de Vendas" className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" />
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Descrição (Obrigatório para Publicação)</label>
+                  <textarea 
+                    required 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                    rows={2} 
+                    placeholder="Explique o que este recurso faz e por que foi atualizado..." 
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  ></textarea>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Descrição</label>
-                <textarea required value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Breve explicação do propósito deste recurso..." className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
-              </div>
 
               {createType === ResourceType.AGENT && (
                 <div className="space-y-2">
@@ -412,7 +428,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                       {isImprovingPrompt ? 'Melhorando...' : 'Melhorar com IA'}
                     </button>
                   </div>
-                  <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={4} placeholder="Defina a personalidade e restrições do agente..." className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+                  <textarea required value={prompt} onChange={e => setPrompt(e.target.value)} rows={4} placeholder="Defina a personalidade e restrições do agente..." className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
                 </div>
               )}
 
@@ -552,7 +568,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 px-4 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all">Cancelar</button>
                 <button type="submit" className="flex-1 py-3 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-sky-100">
-                  {editingResource ? 'Salvar Alterações' : 'Criar Recurso'}
+                  {editingResource ? 'Publicar Revisão' : 'Criar Recurso'}
                 </button>
               </div>
             </form>
