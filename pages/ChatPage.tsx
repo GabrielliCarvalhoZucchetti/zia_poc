@@ -308,15 +308,39 @@ const ChatPage: React.FC<ChatPageProps> = ({
         </div>
 
         <div className="p-4 border-t border-slate-50">
-           <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-sky-600 shadow-sm">
-                 <Icons.Chat />
+           <div className="p-4 bg-slate-50 rounded-2xl space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-sky-600 shadow-sm">
+                   <Icons.Chat />
+                </div>
+                <div className="flex-1 min-w-0">
+                   <div className="text-xs font-bold text-slate-800 truncate">{activeResource.name}</div>
+                   <div className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">
+                     STATUS: ATIVO
+                   </div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                 <div className="text-xs font-bold text-slate-800 truncate">{activeResource.name}</div>
-                 <div className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">
-                   STATUS: ATIVO
-                 </div>
+              
+              <div className="pt-2 border-t border-slate-200/60 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] text-slate-400 border border-slate-100 shadow-sm">
+                    <Icons.User className="w-3 h-3" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Criador</div>
+                    <div className="text-[10px] font-bold text-slate-700 truncate">{activeResource.creatorName || 'Sistema'}</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] text-slate-400 border border-slate-100 shadow-sm">
+                    <Icons.Monitoring className="w-3 h-3" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Área</div>
+                    <div className="text-[10px] font-bold text-slate-700 truncate">{activeResource.creatorArea || 'Zucchetti'}</div>
+                  </div>
+                </div>
               </div>
            </div>
         </div>

@@ -16,6 +16,7 @@ import AppsPage from './pages/AppsPage';
 import WhatsAppMonitorPage from './pages/WhatsAppMonitorPage';
 import ItauLeadUploadPage from './pages/ItauLeadUploadPage';
 import ZnoteLayout from './pages/znote/ZnoteLayout';
+import CreateResourcePage from './pages/CreateResourcePage';
 
 const INITIAL_PROJECTS: Project[] = [
   { 
@@ -26,8 +27,8 @@ const INITIAL_PROJECTS: Project[] = [
     scope: 'Global', 
     metrics: 'NPS > 90', 
     deadline: '2025-12-31', 
-    user: 'Sistema', 
-    email: 'suporte@zucchetti.com.br', 
+    user: 'Gabrielli Carvalho', 
+    email: 'gabrielli.carvalho@zucchetti.com.br', 
     type: 'Assistente',
     comments: [
       { id: 'c1', user: 'Gabriel Ricardo', content: 'Comentado por: alice.castro@zucchetti.com Fonte de dados: Valor Econômico, Google Alerta, Isto É Dinheiro, Revistas de TI, Época Negócios, Comissão de Valores Mobiliários, Publicação de Balanços', timestamp: '2026-01-26T10:00:00Z' },
@@ -35,9 +36,9 @@ const INITIAL_PROJECTS: Project[] = [
       { id: 'c3', user: 'Gabrielli Marques Carvalho', content: 'Realizado reunião de demonstração prévia de projeto e alinhado alguns pontos quanto ao desenvolvimento do projeto(stack e fluxo do projeto no n8n), estamos no aguardo da área de negócio para prosseguir com o desenvolvimento do tutorial junto com envio de algumas informações por email.', timestamp: '2026-02-06T16:45:00Z' }
     ]
   },
-  { id: 'r2', title: 'Doc ClippPro', status: 'CONCLUIDO', description: 'Documentação oficial do produto vetorizada para consulta via IA.', scope: 'Interno', metrics: '100% cobertura', deadline: '2025-01-12', user: 'Sistema', email: 'documentacao@zucchetti.com.br', type: 'Automação' },
-  { id: 'r3', title: 'Gestor de Base', status: 'DESENVOLVIMENTO', description: 'Agente para manipulação e escrita de dados em base segura.', scope: 'Infra', metrics: 'Latência < 2s', deadline: '2025-06-30', user: 'Sistema', email: 'infra@zucchetti.com.br', type: 'Agente' },
-  { id: 'r4', title: 'Auditor de Sistema', status: 'REFINAMENTO', description: 'Analista de logs para investigação de erros e auditoria de segurança.', scope: 'Segurança', metrics: '99% detecção', deadline: '2025-07-15', user: 'Sistema', email: 'seguranca@zucchetti.com.br', type: 'Agente' },
+  { id: 'r2', title: 'Doc ClippPro', status: 'CONCLUIDO', description: 'Documentação oficial do produto vetorizada para consulta via IA.', scope: 'Interno', metrics: '100% cobertura', deadline: '2025-01-12', user: 'Kristofer Pinheiro', email: 'kristofer.pinheiro@zucchetti.com.br', type: 'Automação' },
+  { id: 'r3', title: 'Gestor de Base', status: 'DESENVOLVIMENTO', description: 'Agente para manipulação e escrita de dados em base segura.', scope: 'Infra', metrics: 'Latência < 2s', deadline: '2025-06-30', user: 'Kristofer Pinheiro', email: 'kristofer.pinheiro@zucchetti.com.br', type: 'Agente' },
+  { id: 'r4', title: 'Auditor de Sistema', status: 'REFINAMENTO', description: 'Analista de logs para investigação de erros e auditoria de segurança.', scope: 'Segurança', metrics: '99% detecção', deadline: '2025-07-15', user: 'Gabrielli Carvalho', email: 'gabrielli.carvalho@zucchetti.com.br', type: 'Agente' },
 ];
 
 const INITIAL_RESOURCES: Resource[] = [
@@ -51,6 +52,9 @@ const INITIAL_RESOURCES: Resource[] = [
     createdAt: '2025-01-10', 
     environment: ResourceEnvironment.PRODUCTION, 
     creatorId: 'system', 
+    creatorName: 'Gabrielli Carvalho', 
+    creatorEmail: 'gabrielli.carvalho@zucchetti.com.br',
+    creatorArea: 'IA & Inovação',
     version: 2, 
     updatedAt: '2025-01-20', 
     projectId: 'r1',
@@ -74,6 +78,9 @@ const INITIAL_RESOURCES: Resource[] = [
     createdAt: '2025-01-12', 
     environment: ResourceEnvironment.PRODUCTION, 
     creatorId: 'system', 
+    creatorName: 'Kristofer Pinheiro', 
+    creatorEmail: 'kristofer.pinheiro@zucchetti.com.br',
+    creatorArea: 'Produto',
     version: 3, 
     updatedAt: '2025-02-15', 
     projectId: 'r2',
@@ -82,11 +89,11 @@ const INITIAL_RESOURCES: Resource[] = [
       { version: 1, name: 'Doc ClippPro v1', description: 'Carga inicial de documentação.', updatedAt: '2025-01-12', updatedBy: 'system' }
     ]
   },
-  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
-  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
-  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
-  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
-  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', version: 1, updatedAt: '2025-03-01' },
+  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Kristofer Pinheiro', creatorEmail: 'kristofer.pinheiro@zucchetti.com.br', creatorArea: 'TI', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
+  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Gabrielli Carvalho', creatorEmail: 'gabrielli.carvalho@zucchetti.com.br', creatorArea: 'Compliance', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
+  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
+  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
+  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'Anthropic', creatorEmail: 'support@anthropic.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
 ];
 
 const INITIAL_REQUESTS: AccessRequest[] = [
@@ -125,9 +132,10 @@ const INITIAL_REQUESTS: AccessRequest[] = [
 const AppInner: React.FC = () => {
   const [user, setUser] = useState<User>({
     id: 'u1',
-    name: 'Joao Silva',
+    name: 'Gabrielli Carvalho',
     role: UserRole.ADMINISTRATOR,
-    avatar: 'https://picsum.photos/seed/zia-user/100/100'
+    avatar: 'https://picsum.photos/seed/zia-user/100/100',
+    bu: 'Desenvolvimento'
   });
 
   const [resources, setResources] = useState<Resource[]>(INITIAL_RESOURCES);
@@ -151,6 +159,9 @@ const AppInner: React.FC = () => {
       version: 1,
       environment: ResourceEnvironment.STAGING,
       creatorId: user.id,
+      creatorName: user.name,
+      creatorEmail: 'gabrielli.carvalho@zucchetti.com.br',
+      creatorArea: user.bu || 'Geral',
       history: []
     };
     setResources(prev => [...prev, newRes]);
@@ -313,35 +324,40 @@ const AppInner: React.FC = () => {
     const request = accessRequests.find(req => req.id === id);
     if (!request) return;
 
-    if (request.requiresDoubleApproval) {
-      // Se requer aprovação dupla, verifica qual status deve ser atualizado
-      // Para fins de protótipo, vamos simular que o administrador atual (Joao Silva) aprova uma das etapas
-      setAccessRequests(prev => prev.map(req => {
-        if (req.id === id) {
-          const updatedReq = { ...req };
+    let isFullyApproved = false;
+
+    setAccessRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        const updatedReq = { ...req };
+        if (updatedReq.requiresDoubleApproval) {
           if (!updatedReq.ownerApproved) {
             updatedReq.ownerApproved = true;
           } else if (!updatedReq.iaTeamApproved) {
             updatedReq.iaTeamApproved = true;
             updatedReq.status = 'APPROVED';
+            isFullyApproved = true;
           }
-          return updatedReq;
+        } else {
+          updatedReq.status = 'APPROVED';
+          isFullyApproved = true;
         }
-        return req;
-      }));
-    } else {
-      setAccessRequests(prev => prev.map(req => 
-        req.id === id ? { ...req, status: 'APPROVED' } : req
-      ));
-    }
+        return updatedReq;
+      }
+      return req;
+    }));
 
-    const updatedRequest = accessRequests.find(req => req.id === id);
-
-    // Se for uma solicitação de promoção, atualiza o ambiente do recurso
-    if (request && request.resourceCategory === 'Promoção' && (!request.requiresDoubleApproval || (updatedRequest && updatedRequest.status === 'APPROVED'))) {
-      setResources(prev => prev.map(res => 
-        res.id === request.resourceId ? { ...res, environment: ResourceEnvironment.PRODUCTION } : res
-      ));
+    // Se for uma solicitação de promoção e foi totalmente aprovada, atualiza o ambiente do recurso
+    if (request.resourceCategory === 'Promoção' && (isFullyApproved || (!request.requiresDoubleApproval))) {
+      // Nota: isFullyApproved é setado no mesmo loop síncrono da lógica acima se não for double approval
+      // Mas para garantir, podemos checar as condições
+      const willBeApproved = !request.requiresDoubleApproval || (request.ownerApproved && !request.iaTeamApproved);
+      
+      if (willBeApproved) {
+        setResources(prev => prev.map(res => 
+          res.id === request.resourceId ? { ...res, environment: ResourceEnvironment.PRODUCTION } : res
+        ));
+        alert(`O recurso "${request.resourceName}" foi promovido para o ambiente de PRODUÇÃO com sucesso!`);
+      }
     }
 
     // Simulação de integração com Jira
@@ -369,7 +385,7 @@ const AppInner: React.FC = () => {
     const resource = resources.find(r => r.id === resourceId);
     
     // Simular o email do criador (em um app real seria buscado via API)
-    const resourceOwnerEmail = isGestorDeBase ? 'infra@zucchetti.com.br' : (resource?.creatorId === 'system' ? 'suporte@zucchetti.com.br' : 'usuario@zucchetti.com.br');
+    const resourceOwnerEmail = isGestorDeBase ? 'kristofer.pinheiro@zucchetti.com.br' : (resource?.creatorId === 'system' ? 'gabrielli.carvalho@zucchetti.com.br' : 'gabrielli.carvalho@zucchetti.com.br');
 
     const newRequest: AccessRequest = {
       id: `req-${Date.now()}`,
@@ -462,6 +478,28 @@ const AppInner: React.FC = () => {
                     onRollback={handleRollbackResource}
                   />
                 </div>
+              } />
+              <Route path="/resources/create" element={
+                <CreateResourcePage 
+                  user={user}
+                  resources={resources}
+                  projects={projects}
+                  onCreateResource={handleCreateResource}
+                  onUpdateResource={handleUpdateResource}
+                  onDeleteResource={handleDeleteResource}
+                  onCreateRequest={handleCreateRequest}
+                />
+              } />
+              <Route path="/resources/edit/:id" element={
+                <CreateResourcePage 
+                  user={user}
+                  resources={resources}
+                  projects={projects}
+                  onCreateResource={handleCreateResource}
+                  onUpdateResource={handleUpdateResource}
+                  onDeleteResource={handleDeleteResource}
+                  onCreateRequest={handleCreateRequest}
+                />
               } />
               <Route path="/lab" element={
                 <div className="flex-1 overflow-y-auto bg-slate-50">

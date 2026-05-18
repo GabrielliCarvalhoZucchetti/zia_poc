@@ -50,6 +50,9 @@ export interface Resource {
   linkedDocs?: string[]; // IDs of documentation resources
   environment: ResourceEnvironment;
   creatorId: string;
+  creatorName?: string;
+  creatorEmail?: string;
+  creatorArea?: string;
   webhookUrl?: string;
   projectId?: string;
   version: number;
@@ -129,11 +132,13 @@ export interface User {
   name: string;
   role: UserRole;
   avatar: string;
+  bu?: string;
 }
 
 export interface ApiInteractionLog {
   id: string;
-  author: string; // Agent/Resource name
+  author: string; // Caller author (e.g., User or System)
+  resource: string; // Assistant/Agent name
   apiKeyName: string;
   input: string;
   model: string;

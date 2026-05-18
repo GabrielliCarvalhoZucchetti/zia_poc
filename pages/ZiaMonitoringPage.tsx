@@ -20,13 +20,24 @@ import {
 const MOCK_USAGE_DATA: UserUsage[] = [
   {
     id: 'u1',
-    name: 'Joao Silva',
-    email: 'joao.silva@zucchetti.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Joao',
-    bu: 'ERP',
+    name: 'Gabrielli Carvalho',
+    email: 'gabrielli.carvalho@zucchetti.com.br',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Gabi',
+    bu: 'Desenvolvimento',
     lastActivity: '2026-04-23 10:45',
     interactionsCount: 450,
     accessedResources: ['Assistente Geral', 'GPT-4'],
+    status: 'Ativo'
+  },
+  {
+    id: 'u8',
+    name: 'Kristofer Pinheiro',
+    email: 'kristofer.pinheiro@zucchetti.com.br',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Kris',
+    bu: 'Produto',
+    lastActivity: '2026-04-23 13:10',
+    interactionsCount: 320,
+    accessedResources: ['Doc ClippPro', 'Gestor de Base'],
     status: 'Ativo'
   },
   {
@@ -100,7 +111,8 @@ const MOCK_USAGE_DATA: UserUsage[] = [
 const MOCK_LOGS: ApiInteractionLog[] = [
   {
     id: 'l1',
-    author: 'Assistente Geral',
+    author: 'Sistema POS',
+    resource: 'Assistente Geral',
     apiKeyName: 'ZIA_KEY_01',
     input: 'Qual o faturamento de Março?',
     model: 'GPT-4o',
@@ -111,7 +123,8 @@ const MOCK_LOGS: ApiInteractionLog[] = [
   },
   {
     id: 'l2',
-    author: 'Gestor de Base',
+    author: 'App Mobile',
+    resource: 'Gestor de Base',
     apiKeyName: 'ZIA_KEY_02',
     input: 'Analise o churn rate do time POS.',
     model: 'Claude 3.5 Sonnet',
@@ -122,7 +135,8 @@ const MOCK_LOGS: ApiInteractionLog[] = [
   },
   {
     id: 'l3',
-    author: 'Auditor de Sistema',
+    author: 'Dashboard Administrativo',
+    resource: 'Auditor de Sistema',
     apiKeyName: 'ZIA_KEY_01',
     input: 'Verificar logs de erro do módulo ERP.',
     model: 'GPT-4o mini',
@@ -133,7 +147,8 @@ const MOCK_LOGS: ApiInteractionLog[] = [
   },
   {
     id: 'l4',
-    author: 'Doc ClippPro',
+    author: 'Portal do Cliente',
+    resource: 'Doc ClippPro',
     apiKeyName: 'ZIA_KEY_DOCS',
     input: 'Como configurar o certificado digital?',
     model: 'Gemini 1.5 Flash',
@@ -144,7 +159,8 @@ const MOCK_LOGS: ApiInteractionLog[] = [
   },
   {
     id: 'l5',
-    author: 'Assistente Geral',
+    author: 'Sistema ERP',
+    resource: 'Assistente Geral',
     apiKeyName: 'ZIA_KEY_01',
     input: 'Resuma o último e-mail recebido.',
     model: 'GPT-4o',
@@ -234,6 +250,7 @@ const ZiaMonitoringPage: React.FC = () => {
   const [filterDateEnd, setFilterDateEnd] = useState('');
 
   // Log Filter States
+  const [filterLogResource, setFilterLogResource] = useState('Todos');
   const [filterLogAuthor, setFilterLogAuthor] = useState('Todos');
   const [filterLogModel, setFilterLogModel] = useState('Todos');
   const [filterLogKey, setFilterLogKey] = useState('Todos');
@@ -280,6 +297,7 @@ const ZiaMonitoringPage: React.FC = () => {
   });
 
   const filteredLogs = MOCK_LOGS.filter(log => {
+    if (filterLogResource !== 'Todos' && log.resource !== filterLogResource) return false;
     if (filterLogAuthor !== 'Todos' && log.author !== filterLogAuthor) return false;
     if (filterLogModel !== 'Todos' && log.model !== filterLogModel) return false;
     if (filterLogKey !== 'Todos' && log.apiKeyName !== filterLogKey) return false;
@@ -319,6 +337,7 @@ const ZiaMonitoringPage: React.FC = () => {
   const allBUs = Array.from(new Set(MOCK_USAGE_DATA.map(u => u.bu))).filter(Boolean) as string[];
 
   // Data for Log filters
+  const allLogResources = Array.from(new Set(MOCK_LOGS.map(l => l.resource)));
   const allLogAuthors = Array.from(new Set(MOCK_LOGS.map(l => l.author)));
   const allLogModels = Array.from(new Set(MOCK_LOGS.map(l => l.model)));
   const allLogKeys = Array.from(new Set(MOCK_LOGS.map(l => l.apiKeyName)));
@@ -551,6 +570,7 @@ const ZiaMonitoringPage: React.FC = () => {
               </h3>
               <button 
                 onClick={() => {
+                  setFilterLogResource('Todos');
                   setFilterLogAuthor('Todos');
                   setFilterLogModel('Todos');
                   setFilterLogKey('Todos');
@@ -564,13 +584,25 @@ const ZiaMonitoringPage: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recurso / Agente</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recurso / Assistente</label>
+                <select 
+                  value={filterLogResource}
+                  onChange={(e) => setFilterLogResource(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#0070E0] transition-all appearance-none cursor-pointer"
+                >
+                  <option value="Todos">Todos os Recursos</option>
+                  {allLogResources.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Autor (Origem)</label>
                 <select 
                   value={filterLogAuthor}
                   onChange={(e) => setFilterLogAuthor(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#0070E0] transition-all appearance-none cursor-pointer"
                 >
-                  <option value="Todos">Todos os Recursos</option>
+                  <option value="Todos">Todos os Autores</option>
                   {allLogAuthors.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
@@ -874,7 +906,8 @@ const ZiaMonitoringPage: React.FC = () => {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50/50">
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Autor (Recurso)</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Autor</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recurso</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chave API</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest min-w-[200px]">Input Enviado</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modelo</th>
@@ -885,10 +918,18 @@ const ZiaMonitoringPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-50">
                   {filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/30 transition-colors group">
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 bg-slate-100 rounded flex items-center justify-center">
+                            <Icons.User className="w-3.5 h-3.5 text-slate-400" />
+                          </div>
+                          <span className="text-sm font-bold text-slate-700">{log.author}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-sky-500 rounded-full" />
-                          <span className="text-sm font-bold text-slate-700">{log.author}</span>
+                          <span className="text-xs font-bold text-[#0070E0]">{log.resource}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5">
