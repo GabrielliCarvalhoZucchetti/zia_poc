@@ -32,6 +32,8 @@ export interface ResourceVersion {
   description: string;
   prompt?: string;
   webhookUrl?: string;
+  webhookHeaders?: string;
+  webhookBody?: string;
   model?: string;
   updatedAt: string;
   updatedBy: string;
@@ -54,6 +56,8 @@ export interface Resource {
   creatorEmail?: string;
   creatorArea?: string;
   webhookUrl?: string;
+  webhookHeaders?: string;
+  webhookBody?: string;
   projectId?: string;
   version: number;
   updatedAt: string;

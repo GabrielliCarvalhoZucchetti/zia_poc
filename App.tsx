@@ -179,6 +179,8 @@ const AppInner: React.FC = () => {
           description: r.description,
           prompt: r.prompt,
           webhookUrl: r.webhookUrl,
+          webhookHeaders: r.webhookHeaders,
+          webhookBody: r.webhookBody,
           model: r.model,
           updatedAt: r.updatedAt,
           updatedBy: user.name
@@ -210,6 +212,8 @@ const AppInner: React.FC = () => {
           description: r.description,
           prompt: r.prompt,
           webhookUrl: r.webhookUrl,
+          webhookHeaders: r.webhookHeaders,
+          webhookBody: r.webhookBody,
           model: r.model,
           updatedAt: r.updatedAt,
           updatedBy: user.name
