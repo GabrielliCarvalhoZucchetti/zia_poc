@@ -136,24 +136,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {activeResource && (
-          <div className="ml-6 flex items-center gap-4 pl-6 border-l border-slate-200 animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <Icons.User className="w-3 h-3 text-slate-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Criador</span>
-              </div>
-              <div className="text-[11px] font-bold text-slate-700 mt-0.5 leading-none">{activeResource.creatorEmail || 'sistema@zucchetti.com.br'}</div>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <Icons.Monitoring className="w-3 h-3 text-slate-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Área</span>
-              </div>
-              <div className="text-[11px] font-bold text-slate-700 mt-0.5 leading-none">{activeResource.creatorArea || 'Zucchetti'}</div>
-            </div>
-          </div>
-        )}
+        {/* Removido Criador e Área do Header */}
       </div>
 
       <div className="flex items-center gap-6">
