@@ -90,6 +90,27 @@ const INITIAL_RESOURCES: Resource[] = [
     ]
   },
   { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Kristofer Pinheiro', creatorEmail: 'kristofer.pinheiro@zucchetti.com.br', creatorArea: 'TI', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
+  { 
+    id: 's1', 
+    name: 'Validador de CNPJ', 
+    description: 'Valida cadastros de fornecedores e parceiros contra dados da Receita Federal.', 
+    type: ResourceType.SKILL, 
+    requiredRole: UserRole.BASIC, 
+    createdAt: '2025-05-15', 
+    environment: ResourceEnvironment.PRODUCTION, 
+    creatorId: 'system', 
+    creatorName: 'Gabrielli Carvalho', 
+    creatorEmail: 'gabrielli.carvalho@zucchetti.com.br', 
+    creatorArea: 'IA & Inovação', 
+    version: 1, 
+    updatedAt: '2025-05-15', 
+    prompt: JSON.stringify({
+      fileName: 'validate_cnpj.py',
+      fileSize: '4.8 KB',
+      fileType: 'text/x-python',
+      fileContent: 'import urllib.request\nimport json\n\ndef validate_cnpj(cnpj):\n    cnpj_clean = cnpj.replace(".", "").replace("/", "").replace("-", "")\n    url = f"https://publica.cnpj.ws/cnpj/{cnpj_clean}"\n    try:\n        response = urllib.request.urlopen(url)\n        data = json.loads(response.read().decode())\n        return {"status": "success", "data": data}\n    except Exception as e:\n        return {"status": "error", "message": str(e)}'
+    })
+  },
   { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Gabrielli Carvalho', creatorEmail: 'gabrielli.carvalho@zucchetti.com.br', creatorArea: 'Compliance', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
   { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
   { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },

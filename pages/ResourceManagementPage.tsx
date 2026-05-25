@@ -82,10 +82,11 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
         {[
           { label: 'Total Recursos', value: filteredResources.length, icon: <Icons.Search />, color: 'bg-slate-500' },
           { label: 'Agentes / Assist.', value: filteredResources.filter(r => [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(r.type)).length, icon: <Icons.AgentBuilder />, color: 'bg-indigo-500' },
+          { label: 'Skills', value: filteredResources.filter(r => r.type === ResourceType.SKILL).length, icon: <Icons.Sparkles />, color: 'bg-fuchsia-500' },
           { label: 'Documentação', value: filteredResources.filter(r => r.type === ResourceType.DOCUMENTATION).length, icon: <Icons.Documentation />, color: 'bg-emerald-500' },
           { label: 'Apenas Admin', value: filteredResources.filter(r => r.requiredRole === UserRole.ADMINISTRATOR).length, icon: <Icons.Settings />, color: 'bg-amber-500' },
         ].map((stat, i) => (
@@ -152,11 +153,13 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                       res.type === ResourceType.AGENT ? 'bg-indigo-50 text-indigo-600' : 
                       res.type === ResourceType.AUTOMATION ? 'bg-amber-50 text-amber-600' :
                       res.type === ResourceType.ASSISTANT ? 'bg-sky-50 text-sky-600' :
+                      res.type === ResourceType.SKILL ? 'bg-fuchsia-100 text-fuchsia-600' :
                       'bg-emerald-50 text-emerald-600'
                     }`}>
                       {res.type === ResourceType.AGENT && <Icons.AgentBuilder className="w-4 h-4" />}
                       {res.type === ResourceType.AUTOMATION && <Icons.Lightning className="w-4 h-4" />}
                       {res.type === ResourceType.ASSISTANT && <Icons.Chat className="w-4 h-4" />}
+                      {res.type === ResourceType.SKILL && <Icons.Sparkles className="w-4 h-4" />}
                       {res.type === ResourceType.DOCUMENTATION && <Icons.Documentation className="w-4 h-4" />}
                     </div>
                     <div>
@@ -165,7 +168,8 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                         <span className="uppercase font-bold tracking-tighter opacity-70">
                           {res.type === ResourceType.AGENT ? 'Agente' : 
                            res.type === ResourceType.AUTOMATION ? 'Automação' : 
-                           res.type === ResourceType.ASSISTANT ? 'Assistente' : 'Doc'}
+                           res.type === ResourceType.ASSISTANT ? 'Assistente' : 
+                           res.type === ResourceType.SKILL ? 'Skill' : 'Doc'}
                         </span>
                         <span>•</span>
                         <span className="truncate max-w-[150px]">{res.description}</span>

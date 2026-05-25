@@ -18,7 +18,8 @@ export enum ResourceType {
   ASSISTANT = 'ASSISTANT',
   AUTOMATION = 'AUTOMATION',
   DOCUMENTATION = 'DOCUMENTATION',
-  MARKET_MODEL = 'MARKET_MODEL'
+  MARKET_MODEL = 'MARKET_MODEL',
+  SKILL = 'SKILL'
 }
 
 export enum ResourceEnvironment {
