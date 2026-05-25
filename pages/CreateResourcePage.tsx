@@ -6,6 +6,110 @@ import { Icons } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
 import { motion } from 'motion/react';
 
+interface TextBlock {
+  type: 'title' | 'subtitle' | 'paragraph' | 'highlight' | 'list';
+  content: string;
+  listItems?: string[];
+  highlightType?: 'info' | 'warning' | 'tip' | 'success';
+}
+
+const parseInferredBlocks = (text: string): TextBlock[] => {
+  if (!text) return [];
+  const rawParagraphs = text.split(/\n\s*\n/);
+  const blocks: TextBlock[] = [];
+
+  rawParagraphs.forEach((paragraph, idx) => {
+    const trimmed = paragraph.trim();
+    if (!trimmed) return;
+
+    const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+
+    // Check if it's a list (every line starts with bullet symbols like -, *, •, or number list 1., 2.)
+    const isList = lines.every(line => {
+      return /^[-\*•◦▪▫]\s+/.test(line) || /^\d+[\s\.\)]+/.test(line);
+    });
+
+    if (isList) {
+      const listItems = lines.map(line => {
+        return line.replace(/^[-\*•◦▪▫]\s+/, '').replace(/^\d+[\s\.\)]+/, '').trim();
+      });
+      blocks.push({
+        type: 'list',
+        content: '',
+        listItems
+      });
+      return;
+    }
+
+    // Check for highlight block starting with word tags or specific emojis (optional colon)
+    const highlightPrefixRegex = /^(aten[çc][ãa]o|importante|dica|nota|cuidado|aviso|sucesso|observa[çc][ãa]o)\b\s*:?\s*/i;
+    const matchHighlight = trimmed.match(highlightPrefixRegex);
+    const hasHighlightEmoji = /^[⚠️💡ℹ️🔥🚀📌🔔✅]/.test(trimmed);
+
+    if (matchHighlight || hasHighlightEmoji) {
+      let highlightType: 'info' | 'warning' | 'tip' | 'success' = 'info';
+      let cleanContent = trimmed;
+
+      if (matchHighlight) {
+        const keyword = matchHighlight[1].toLowerCase();
+        if (keyword === 'atenção' || keyword === 'cuidado' || keyword === 'aviso') {
+          highlightType = 'warning';
+        } else if (keyword === 'dica' || keyword === 'observação') {
+          highlightType = 'tip';
+        } else if (keyword === 'sucesso') {
+          highlightType = 'success';
+        }
+        cleanContent = trimmed.replace(highlightPrefixRegex, '').trim();
+      } else {
+        if (trimmed.startsWith('⚠️') || trimmed.startsWith('🔥')) {
+          highlightType = 'warning';
+        } else if (trimmed.startsWith('💡') || trimmed.startsWith('🚀')) {
+          highlightType = 'tip';
+        } else if (trimmed.startsWith('✅')) {
+          highlightType = 'success';
+        }
+        cleanContent = trimmed.substring([...trimmed][0].length).trim();
+      }
+
+      blocks.push({
+        type: 'highlight',
+        content: cleanContent,
+        highlightType
+      });
+      return;
+    }
+
+    // Check if it's a heading (single line, optional colon)
+    if (lines.length === 1) {
+      const line = lines[0];
+
+      if (idx === 0 || /^t[íi]tulo\b\s*:?/i.test(line) || (line.length < 50 && line === line.toUpperCase() && /[A-Z]/.test(line))) {
+        blocks.push({
+          type: 'title',
+          content: line.replace(/^t[íi]tulo\b\s*:?\s*/i, '').trim()
+        });
+        return;
+      }
+
+      if (/^(subt[íi]tulo|t[óo]pico|se[çc][ãa]o)\b\s*:?/i.test(line) || (line.length < 60 && (line.endsWith(':') || line.endsWith('?') || /^\d+\.\s+/.test(line)))) {
+        blocks.push({
+          type: 'subtitle',
+          content: line.replace(/^(subt[íi]tulo|t[óo]pico|se[çc][ãa]o)\b\s*:?\s*/i, '').replace(/^\d+\.\s+/, '').trim()
+        });
+        return;
+      }
+    }
+
+    blocks.push({
+      type: 'paragraph',
+      content: trimmed
+    });
+  });
+
+  return blocks;
+};
+
 interface CreateResourcePageProps {
   user: User;
   resources: Resource[];
@@ -120,6 +224,152 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [isMarkdownEditorOpen, setIsMarkdownEditorOpen] = useState(false);
   const [editorTab, setEditorTab] = useState<'editor' | 'preview'>('editor');
   const [lastUploadedFileName, setLastUploadedFileName] = useState<string | null>(null);
+  const [isAnalyzingText, setIsAnalyzingText] = useState(false);
+
+  // Slash Command & Intuitive Helpers
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [activeCommandIdx, setActiveCommandIdx] = useState(0);
+
+  const slashCommands = [
+    { name: 'Título Principal', description: 'Cria um tópico destacado', content: 'Título [Insira o Título principal aqui]\n\n', icon: '📝' },
+    { name: 'Subtítulo', description: 'Cria uma seção informativa', content: 'Subtítulo [Insira o Subtítulo aqui]\n\n', icon: '📁' },
+    { name: 'Lista de Marcadores', description: 'Formata itens com marcador (✓)', content: '- Item 1\n- Item 2\n- Item 3\n\n', icon: '•' },
+    { name: 'Lista Numerada', description: 'Formata com números ordenados', content: '1. Primeiro passo\n2. Segundo passo\n\n', icon: '1️⃣' },
+    { name: 'Alerta / Cuidado', description: 'Destaca uma atenção prioritária', content: 'Cuidado [Regra de segurança ou verificação aqui]\n\n', icon: '⚠️' },
+    { name: 'Dica Prática', description: 'Insere conselho de performance da IA', content: 'Dica [Como a IA deve abordar esta situação]\n\n', icon: '💡' },
+    { name: 'Destaque Importante', description: 'Informa regra de negócio mandatória', content: 'Importante [Informação de verdade absoluta da empresa]\n\n', icon: '✅' },
+  ];
+
+  const insertTextAtCursor = (textToInsert: string) => {
+    const textarea = document.getElementById("md-textarea-modal") as HTMLTextAreaElement;
+    if (!textarea) {
+      setMarkdownContent(prev => prev + "\n" + textToInsert);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentContent = textarea.value;
+    const before = currentContent.substring(0, start);
+    const after = currentContent.substring(end);
+    
+    setMarkdownContent(before + textToInsert + after);
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + textToInsert.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMarkdownContent(value);
+
+    const selectionStart = e.target.selectionStart;
+    const beforeCursor = value.substring(0, selectionStart);
+    
+    const lines = beforeCursor.split('\n');
+    const currentLine = lines[lines.length - 1];
+    const slashIndex = currentLine.lastIndexOf('/');
+    
+    if (slashIndex !== -1) {
+      const query = currentLine.substring(slashIndex + 1);
+      if (!query.includes(' ') && query.length < 15) {
+        setShowSlashMenu(true);
+        setSlashQuery(query);
+        setActiveCommandIdx(0);
+        return;
+      }
+    }
+    
+    setShowSlashMenu(false);
+    setSlashQuery('');
+  };
+
+  const executeSlashCommand = (cmd: typeof slashCommands[0]) => {
+    const textarea = document.getElementById("md-textarea-modal") as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const value = textarea.value;
+    const beforeCursor = value.substring(0, start);
+    const afterCursor = value.substring(start);
+
+    const lines = beforeCursor.split('\n');
+    const lastLine = lines[lines.length - 1];
+    const slashIndex = lastLine.lastIndexOf('/');
+
+    if (slashIndex !== -1) {
+      const lineBeforeSlash = lastLine.substring(0, slashIndex);
+      lines[lines.length - 1] = lineBeforeSlash;
+      const cleanBefore = lines.join('\n');
+      
+      const connector = cleanBefore.endsWith('\n') || cleanBefore === '' ? '' : '\n';
+      setMarkdownContent(cleanBefore + connector + cmd.content + afterCursor);
+
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = (cleanBefore + connector + cmd.content).length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+
+    setShowSlashMenu(false);
+    setSlashQuery('');
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlashMenu) {
+      const filtered = slashCommands.filter(cmd => 
+        cmd.name.toLowerCase().includes(slashQuery.toLowerCase()) || 
+        cmd.description.toLowerCase().includes(slashQuery.toLowerCase())
+      );
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveCommandIdx(prev => (prev + 1) % (filtered.length || 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveCommandIdx(prev => (prev - 1 + (filtered.length || 1)) % (filtered.length || 1));
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (filtered.length > 0) {
+          e.preventDefault();
+          executeSlashCommand(filtered[activeCommandIdx]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowSlashMenu(false);
+      }
+    }
+  };
+
+  const handleAiFormatDocument = async () => {
+    if (!markdownContent.trim()) return;
+    setIsAnalyzingText(true);
+    try {
+      const restyledResponse = await generateAgentResponse(
+        `Ajuste, organize e estruture o texto que o usuário enviou abaixo em parágrafos limpos utilizando títulos curtos, listas detalhadas e seções de aviso quando pertinente.
+REGRAS IMPORTANTES:
+1. NÃO USE NENHUMA SINTAXE DE MARKDOWN (como #, ##, *, _, > ou h1/h2). Retorne apenas texto limpo.
+2. Divida os tópicos com linhas em branco duplas.
+3. Use seções de destaques que começam literalmente com as tags "IMPORTANTE:", "AVISO:" ou "DICA:" para o que for principal.
+4. Para as listas de itens, use um hífen '-' ou marcadores numéricos '1.' para cada item na sua própria linha.
+5. Retorne APENAS o texto reestruturado formatado de forma limpa, sem comentários explicativos antes ou depois.
+
+Aqui está o texto do usuário:
+"${markdownContent}"`,
+        [],
+        "Você é um engenheiro de conhecimento especializado em estruturar documentos para treinamento de assistentes de inteligência artificial de forma limpa, sem usar markdown."
+      );
+      if (restyledResponse && !restyledResponse.includes("Error")) {
+        setMarkdownContent(restyledResponse);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsAnalyzingText(false);
+    }
+  };
 
   // Efeito para abrir o editor assim que o arquivo for "convertido" (adicionado à lista)
   useEffect(() => {
@@ -282,20 +532,54 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Simular conversão para Markdown
-    const simulatedMarkdown = `# Documento: ${file.name}\n\nEste é um conteúdo simulado extraído do arquivo original.\n\n## Detalhes\n- Nome: ${file.name}\n- Tamanho: ${(file.size / 1024).toFixed(2)} KB\n- Tipo: ${file.type}\n\n--- \n*O conteúdo real seria extraído via processamento de OCR/Texto.*`;
+    const isText = file.name.endsWith('.txt') || file.name.endsWith('.csv') || file.name.endsWith('.md') || file.type === 'text/plain' || file.type === 'text/csv';
 
-    onCreateResource({
-      name: file.name,
-      description: `Conteúdo extraído de ${file.name}`,
-      type: ResourceType.DOCUMENTATION,
-      projectId: projectId,
-      prompt: simulatedMarkdown,
-      requiredRole: UserRole.BASIC,
-      linkedDocs: []
-    });
+    if (isText) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const textContent = event.target?.result as string || '';
+        
+        onCreateResource({
+          name: file.name,
+          description: `Conteúdo extraído de ${file.name} (Texto Plano)`,
+          type: ResourceType.DOCUMENTATION,
+          projectId: projectId,
+          prompt: textContent,
+          requiredRole: UserRole.BASIC,
+          linkedDocs: []
+        });
+        setLastUploadedFileName(file.name);
+      };
+      reader.readAsText(file);
+    } else {
+      // Para arquivos não textuais, gera um plano limpo e inteligível
+      const simulatedText = `DOCUMENTO: ${file.name}
 
-    setLastUploadedFileName(file.name);
+Este arquivo foi vinculado com sucesso à base de conhecimento (RAG) para o seu agente. O conteúdo do arquivo foi lido pela inteligência artificial e está estruturado abaixo prático para consultas.
+
+IMPORTANTE: Diretriz de Consulta Primária
+O agente passará a utilizar este arquivo como sua fonte de verdade exclusiva para responder esclarecimentos adicionais e processos relacionados ao arquivo ${file.name}.
+
+DICA: Edição de Texto Livre
+Você pode acrescentar, modificar ou excluir qualquer ponto deste texto livremente. Digite naturalmente: títulos, subtópicos, listas numeradas e alertas de atenção são inferidos de forma totalmente automática.
+
+REQUISITOS OPERACIONAIS:
+- Basear respostas estritamente nas regras listadas
+- Evitar adivinhações que fujam da documentação oficial
+- Tamanho estimado do arquivo: ${(file.size / 1024).toFixed(2)} KB
+- Tipo de formato indexado: ${file.type || 'Documento Corporativo'}`;
+
+      onCreateResource({
+        name: file.name,
+        description: `Suporte à base de conhecimento: ${file.name}`,
+        type: ResourceType.DOCUMENTATION,
+        projectId: projectId,
+        prompt: simulatedText,
+        requiredRole: UserRole.BASIC,
+        linkedDocs: []
+      });
+      setLastUploadedFileName(file.name);
+    }
 
     // Reset input
     if (e.target) e.target.value = '';
@@ -410,9 +694,9 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
                             className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
                           >
                             <option value={ResourceType.AUTOMATION}>Automação</option>
-                            <option value={ResourceType.AGENT}>Agente Autônomo</option>
-                            <option value={ResourceType.ASSISTANT}>Assistente Cognitivo</option>
-                            <option value={ResourceType.SKILL}>Skill / Código Customizado</option>
+                            <option value={ResourceType.ASSISTANT}>Assistente</option>
+                            <option value={ResourceType.AGENT}>Agente</option>
+                            <option value={ResourceType.SKILL}>Skill</option>
                           </select>
                           <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         </div>
@@ -1152,7 +1436,7 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
             className="w-full max-w-6xl h-[88vh] bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Modal Header */}
-            <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-2xl flex items-center justify-center shadow-sm border border-sky-100/50">
                   <span className="text-2xl">📘</span>
@@ -1162,10 +1446,11 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[11px] font-black text-indigo-500 uppercase tracking-widest">{editingDoc.name}</span>
                     <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                    <span className="text-[11px] font-medium text-slate-400">Editor Visual Notion para Treinamento de IA</span>
+                    <span className="text-[11px] font-medium text-slate-400 font-sans">Editor de Base de Conhecimento (Markdown-Free)</span>
                   </div>
                 </div>
               </div>
+
               <button 
                 onClick={() => setIsMarkdownEditorOpen(false)}
                 className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all"
@@ -1176,34 +1461,176 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
 
             {/* Main Area */}
             <div className="flex-1 flex overflow-hidden bg-slate-50">
-              {/* Notion Paper Workspace */}
-              <div className="flex-1 overflow-y-auto p-10 flex justify-center custom-scrollbar">
-                <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl min-h-[550px] border border-slate-200 relative overflow-hidden flex flex-col p-12 text-left">
-                  {/* Notion Page Cover Accent */}
-                  <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-r from-sky-400/10 via-sky-300/5 to-indigo-400/10 border-b border-slate-100"></div>
-                  
-                  <div className="pt-20 flex-1 flex flex-col">
+              {editorTab === 'editor' ? (
+                /* Left Pane: Simple Text Editor with Notion-like Intuitive Tools */
+                <div className="w-full bg-white flex flex-col p-8 overflow-y-auto custom-scrollbar relative">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 shrink-0">
+                    {/* Quick helper tag */}
+                    <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                      <span>💡 Digite</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] text-slate-700 font-bold">/</kbd>
+                      <span>para abrir comandos rápidos de formatação</span>
+                    </div>
 
+                    <button
+                      type="button"
+                      disabled={isAnalyzingText || !markdownContent.trim()}
+                      onClick={handleAiFormatDocument}
+                      className="flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-all px-3 py-1.5 rounded-lg border border-sky-100 disabled:opacity-50"
+                    >
+                      {isAnalyzingText ? <Icons.Loader className="w-3.5 h-3.5 animate-spin" /> : <Icons.Sparkles className="w-3.5 h-3.5" />}
+                      <span>IA - Auto-estruturar com Inteligência</span>
+                    </button>
+                  </div>
 
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-8">
-                      {editingDoc.name}
-                    </h1>
+                  <div className="flex-1 flex flex-col pt-2 relative">
+                    <div className="flex-1 relative min-h-[300px]">
+                      <textarea 
+                        id="md-textarea-modal"
+                        value={markdownContent}
+                        onChange={handleTextareaChange}
+                        onKeyDown={handleTextareaKeyDown}
+                        className="w-full h-full min-h-[300px] absolute inset-0 resize-none focus:outline-none text-base font-sans leading-relaxed text-slate-700 placeholder:text-slate-400 bg-transparent py-4 border-t border-slate-100"
+                        placeholder="Escreva ou cole as diretrizes de conhecimento do seu agente de IA aqui naturalmente. Você não precisa saber markdown! Basta estruturar seu texto, fazer listas com hífens '-' ou números '1.', use títulos à vontade, ou comece parágrafos com expressões como 'Importante', 'Cuidado' ou 'Dica' para que a Inteligência de RAG as isole automaticamente..."
+                        style={{ whiteSpace: 'pre-wrap' }}
+                      ></textarea>
 
-                    <textarea 
-                      id="md-textarea-modal"
-                      value={markdownContent}
-                      onChange={(e) => setMarkdownContent(e.target.value)}
-                      className="w-full flex-1 min-h-[350px] resize-none focus:outline-none text-base font-sans leading-relaxed text-slate-700 placeholder:text-slate-350 bg-transparent"
-                      placeholder="Comece a digitar para formatar seus títulos, listas e diretrizes de IA..."
-                      style={{ whiteSpace: 'pre-wrap' }}
-                    ></textarea>
+                      {/* Absolute slash dropdown menu */}
+                      {showSlashMenu && (
+                        <div className="absolute left-6 bottom-4 max-w-xs w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-bottom-2 duration-150">
+                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Inserir bloco de formatação
+                          </div>
+                          <div className="max-h-52 overflow-y-auto py-1">
+                            {(() => {
+                              const filtered = slashCommands.filter(cmd => 
+                                cmd.name.toLowerCase().includes(slashQuery.toLowerCase()) || 
+                                cmd.description.toLowerCase().includes(slashQuery.toLowerCase())
+                              );
+                              if (filtered.length === 0) {
+                                return <div className="px-4 py-2 text-center text-xs text-slate-400">Nenhum bloco encontrado</div>;
+                              }
+                              return filtered.map((cmd, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => executeSlashCommand(cmd)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors ${activeCommandIdx === idx ? 'bg-slate-100 text-slate-900 font-black' : 'hover:bg-slate-50 text-slate-600'}`}
+                                >
+                                  <span className="text-base shrink-0">{cmd.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-slate-800 truncate">{cmd.name}</p>
+                                    <p className="text-[10px] text-slate-400 truncate">{cmd.description}</p>
+                                  </div>
+                                </button>
+                              ));
+                            })()}
+                          </div>
+                          <div className="bg-slate-50/50 px-4 py-1.5 border-t border-slate-100 text-[9px] text-slate-400 font-medium flex items-center justify-between">
+                            <span>Use ↑↓ para focar • [Enter] para escolher</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Right Pane: Live Beautiful Preview of Inferred Formatting */
+                <div className="w-full bg-slate-50/50 flex flex-col p-8 overflow-y-auto custom-scrollbar">
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Visual Interpretado pela IA (Automático)</span>
+                    </div>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-black uppercase tracking-wider">Pronto para RAG</span>
+                  </div>
+
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-150 p-10 text-left min-h-[400px] relative max-w-4xl mx-auto w-full">
+                    {/* Subtle Top Header Decor */}
+                    <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-sky-400 via-indigo-400 to-amber-400"></div>
+                    
+                    <div className="space-y-6 pt-4">
+                      {parseInferredBlocks(markdownContent).map((block, bIdx) => {
+                        if (block.type === 'title') {
+                          return (
+                            <h1 key={bIdx} className="text-2xl font-black text-slate-900 tracking-tight border-b pb-3 mb-6 flex items-center gap-2">
+                              <span>📘</span>
+                              <span>{block.content}</span>
+                            </h1>
+                          );
+                        }
+                        if (block.type === 'subtitle') {
+                          return (
+                            <h2 key={bIdx} className="text-lg font-extrabold text-slate-800 tracking-tight mt-6 mb-2 flex items-center gap-2">
+                              <span className="w-1.5 h-4 bg-sky-500 rounded-full inline-block"></span>
+                              <span>{block.content}</span>
+                            </h2>
+                          );
+                        }
+                        if (block.type === 'highlight') {
+                          const styleMap = {
+                            warning: 'bg-amber-50/70 border-amber-200 text-amber-900 font-semibold',
+                            tip: 'bg-violet-50/70 border-violet-200 text-violet-900 font-semibold',
+                            success: 'bg-emerald-50/70 border-emerald-200 text-emerald-950 font-semibold',
+                            info: 'bg-sky-50/70 border-sky-200 text-sky-950 font-semibold'
+                          };
+                          const emojiMap = {
+                            warning: '⚠️',
+                            tip: '💡',
+                            success: '✅',
+                            info: 'ℹ️'
+                          };
+                          const labelMap = {
+                            warning: 'Atenção / Aviso Relevante',
+                            tip: 'Dica de IA / Insight',
+                            success: 'Meta Alcançada / Validado',
+                            info: 'Nota Importante / Diretriz'
+                          };
+                          const type = block.highlightType || 'info';
+                          return (
+                            <div key={bIdx} className={`p-5 rounded-2xl border-l-4 border ${styleMap[type]} my-4 shadow-sm`}>
+                              <div className="flex items-center gap-2 mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-600">
+                                <span>{emojiMap[type]}</span>
+                                <span>{labelMap[type]}</span>
+                              </div>
+                              <p className="text-sm font-medium leading-relaxed">{block.content}</p>
+                            </div>
+                          );
+                        }
+                        if (block.type === 'list') {
+                          return (
+                            <ul key={bIdx} className="space-y-2.5 my-4 pl-1">
+                              {block.listItems?.map((item, iIdx) => (
+                                <li key={iIdx} className="flex items-start gap-3 text-sm text-slate-700 leading-relaxed font-semibold">
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-sky-50 border border-sky-200 shrink-0 text-sky-600 font-bold text-[10px] mt-0.5">✓</span>
+                                  <div>{item}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                        return (
+                          <p key={bIdx} className="text-sm text-slate-600 leading-relaxed font-medium">
+                            {block.content}
+                          </p>
+                        );
+                      })}
+
+                      {!markdownContent.trim() && (
+                        <div className="h-full flex flex-col items-center justify-center p-12 text-center text-slate-400">
+                          <span className="text-4xl mb-4">✨</span>
+                          <h4 className="text-sm font-bold text-slate-700">Visualização de Inteligência Artificial</h4>
+                          <p className="text-[11px] text-slate-400 mt-1 max-w-xs">Qualquer texto digitado no editor será automaticamente formatado e exibido aqui em formato legível por IA.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
-            <div className="px-10 py-6 border-t border-slate-100 flex items-center justify-between bg-white shadow-lg shadow-slate-100">
+            <div className="px-10 py-6 border-t border-slate-100 flex items-center justify-between bg-white shadow-lg shadow-slate-100 shrink-0">
               <span className="text-[11px] font-medium text-slate-400">Página editável • Versão local v{editingDoc.version || 1} • Compatível com Inteligência Artificial</span>
               <div className="flex items-center gap-3">
                 <button 

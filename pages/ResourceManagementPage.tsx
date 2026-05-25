@@ -15,6 +15,59 @@ interface ResourceManagementPageProps {
   onRollback?: (resourceId: string, version: number) => void;
 }
 
+const getClassificationInfo = (type: ResourceType) => {
+  switch (type) {
+    case ResourceType.AGENT:
+      return {
+        label: 'Agente',
+        color: 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100',
+        icon: '🤖',
+        concept: 'Agente de IA',
+        desc: 'Unidade autônoma de IA configurada para executar ações, analisar situações complexas e tomar decisões com base em seus objetivos delineados.'
+      };
+    case ResourceType.ASSISTANT:
+      return {
+        label: 'Assistente',
+        color: 'bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100',
+        icon: '💬',
+        concept: 'Assistente de IA',
+        desc: 'Interface conversacional direta em tempo real focada em responder a dúvidas, dar suporte ao cliente e extrair informações dinâmicas.'
+      };
+    case ResourceType.AUTOMATION:
+      return {
+        label: 'Automação',
+        color: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100',
+        icon: '⚡',
+        concept: 'Fluxo Automatizado',
+        desc: 'Regras lógicas e webhooks ativados por gatilhos de eventos terceiros, gerando ações em lote de forma 100% autônoma.'
+      };
+    case ResourceType.SKILL:
+      return {
+        label: 'Skill',
+        color: 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-100',
+        icon: '✨',
+        concept: 'Skill Inteligente',
+        desc: 'Extensão de código carregada sob demanda para ensinar seu assistente ou agente a executar tarefas técnicas sob medida e chamadas externas.'
+      };
+    case ResourceType.DOCUMENTATION:
+      return {
+        label: 'Documentação',
+        color: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
+        icon: '📄',
+        concept: 'Base de Conhecimento',
+        desc: 'Documentos, PDFs ou diretrizes puras de regras enviadas à inteligência de RAG para embasar respostas confiáveis e precisas.'
+      };
+    default:
+      return {
+        label: 'Outro',
+        color: 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200',
+        icon: '⚙️',
+        concept: 'Recurso Secundário',
+        desc: 'Recurso de configuração diversa registrado no sistema.'
+      };
+  }
+};
+
 const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({ 
   user,
   resources, 
@@ -136,6 +189,7 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
           <thead>
             <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
               <th className="px-6 py-4">Recurso</th>
+              <th className="px-6 py-4">Classificação</th>
               <th className="px-6 py-4">Criador</th>
               <th className="px-6 py-4">Área / BU</th>
               <th className="px-6 py-4">Ambiente</th>
@@ -176,6 +230,38 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                       </div>
                     </div>
                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  {(() => {
+                    const info = getClassificationInfo(res.type);
+                    return (
+                      <div className="relative group inline-block">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-xl border cursor-help transition-all duration-200 shadow-sm ${info.color}`}>
+                          <span>{info.icon}</span>
+                          <span>{info.label}</span>
+                        </span>
+                        
+                        {/* Tooltip on Hover */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 bg-slate-900/95 backdrop-blur-sm text-white text-xs rounded-xl shadow-xl p-3.5 z-50 pointer-events-none transition-all duration-200 border border-slate-750 opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 origin-bottom invisible group-hover:visible">
+                          <div className="font-extrabold mb-1.5 pb-1.5 border-b border-white/10 text-[11px] text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>{info.icon}</span>
+                            <span>{info.concept}</span>
+                          </div>
+                          <p className="text-slate-200 font-medium leading-relaxed mb-2">
+                            {info.desc}
+                          </p>
+                          <div className="bg-slate-950/80 p-2.5 rounded-lg border border-white/5 text-[10px] text-slate-400">
+                            <span className="font-bold text-slate-500 block mb-0.5">Descrição do Item:</span>
+                            <p className="italic line-clamp-2 leading-normal">
+                              {res.description ? `"${res.description}"` : 'Sem descrição cadastrada.'}
+                            </p>
+                          </div>
+                          {/* Arrow */}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-[6px] border-transparent border-t-slate-900/95"></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
