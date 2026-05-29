@@ -170,7 +170,7 @@ const AppInner: React.FC = () => {
     setUser(prev => ({ ...prev, role }));
   };
 
-  const handleCreateResource = (res: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'>) => {
+  const handleCreateResource = (res: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'> & { environment?: ResourceEnvironment }) => {
     const now = new Date().toISOString().split('T')[0];
     const newRes: Resource = {
       ...res,
@@ -178,13 +178,13 @@ const AppInner: React.FC = () => {
       createdAt: now,
       updatedAt: now,
       version: 1,
-      environment: ResourceEnvironment.STAGING,
+      environment: res.environment || ResourceEnvironment.STAGING,
       creatorId: user.id,
       creatorName: user.name,
       creatorEmail: 'gabrielli.carvalho@zucchetti.com.br',
       creatorArea: user.bu || 'Geral',
       history: []
-    };
+    } as Resource;
     setResources(prev => [...prev, newRes]);
   };
 

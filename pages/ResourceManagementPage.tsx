@@ -96,6 +96,13 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
 
   const filteredResources = activeTab === 'mine' ? myResources : otherResources;
   const [showHistoryModal, setShowHistoryModal] = useState<Resource | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const handleClose = () => setActiveDropdown(null);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, []);
 
   const handleEdit = (res: Resource) => {
     navigate(`/resources/edit/${res.id}`);
@@ -109,6 +116,21 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
       `Solicitação de promoção do ambiente de Homologação para Produção. Vincular ao Jira.`
     );
     alert("Solicitação de promoção enviada para aprovação do administrador.");
+  };
+
+  const handleDownloadSkill = (res: Resource) => {
+    const fileName = `${res.name}_instrucoes.txt`;
+    const fileContent = res.description || 'Nenhuma instrução cadastrada para esta skill.';
+    
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -135,13 +157,11 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         {[
           { label: 'Total Recursos', value: filteredResources.length, icon: <Icons.Search />, color: 'bg-slate-500' },
           { label: 'Agentes / Assist.', value: filteredResources.filter(r => [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(r.type)).length, icon: <Icons.AgentBuilder />, color: 'bg-indigo-500' },
           { label: 'Skills', value: filteredResources.filter(r => r.type === ResourceType.SKILL).length, icon: <Icons.Sparkles />, color: 'bg-fuchsia-500' },
-          { label: 'Documentação', value: filteredResources.filter(r => r.type === ResourceType.DOCUMENTATION).length, icon: <Icons.Documentation />, color: 'bg-emerald-500' },
-          { label: 'Apenas Admin', value: filteredResources.filter(r => r.requiredRole === UserRole.ADMINISTRATOR).length, icon: <Icons.Settings />, color: 'bg-amber-500' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className={`w-12 h-12 ${stat.color} text-white rounded-xl flex items-center justify-center`}>
@@ -202,43 +222,15 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
             {filteredResources.map((res) => (
               <tr key={res.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      res.type === ResourceType.AGENT ? 'bg-indigo-50 text-indigo-600' : 
-                      res.type === ResourceType.AUTOMATION ? 'bg-amber-50 text-amber-600' :
-                      res.type === ResourceType.ASSISTANT ? 'bg-sky-50 text-sky-600' :
-                      res.type === ResourceType.SKILL ? 'bg-fuchsia-100 text-fuchsia-600' :
-                      'bg-emerald-50 text-emerald-600'
-                    }`}>
-                      {res.type === ResourceType.AGENT && <Icons.AgentBuilder className="w-4 h-4" />}
-                      {res.type === ResourceType.AUTOMATION && <Icons.Lightning className="w-4 h-4" />}
-                      {res.type === ResourceType.ASSISTANT && <Icons.Chat className="w-4 h-4" />}
-                      {res.type === ResourceType.SKILL && <Icons.Sparkles className="w-4 h-4" />}
-                      {res.type === ResourceType.DOCUMENTATION && <Icons.Documentation className="w-4 h-4" />}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-800">{res.name}</div>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                        <span className="uppercase font-bold tracking-tighter opacity-70">
-                          {res.type === ResourceType.AGENT ? 'Agente' : 
-                           res.type === ResourceType.AUTOMATION ? 'Automação' : 
-                           res.type === ResourceType.ASSISTANT ? 'Assistente' : 
-                           res.type === ResourceType.SKILL ? 'Skill' : 'Doc'}
-                        </span>
-                        <span>•</span>
-                        <span className="truncate max-w-[150px]">{res.description}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="text-sm font-bold text-slate-800">{res.name}</div>
                 </td>
                 <td className="px-6 py-4">
                   {(() => {
                     const info = getClassificationInfo(res.type);
                     return (
                       <div className="relative group inline-block">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-xl border cursor-help transition-all duration-200 shadow-sm ${info.color}`}>
-                          <span>{info.icon}</span>
-                          <span>{info.label}</span>
+                        <span className="text-xs font-semibold text-slate-750 hover:text-sky-600 cursor-help transition-colors">
+                          {info.label}
                         </span>
                         
                         {/* Tooltip on Hover */}
@@ -292,42 +284,90 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400">{res.updatedAt}</td>
                 <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="inline-block text-left relative">
                     <button 
-                      onClick={() => setShowHistoryModal(res)}
-                      className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                      title="Ver Histórico de Versões"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdown(activeDropdown === res.id ? null : res.id);
+                      }}
+                      className="p-2 hover:bg-slate-150 rounded-full text-slate-400 hover:text-slate-650 transition-all focus:outline-none"
+                      title="Ações"
                     >
-                      <Icons.History />
+                      <Icons.MoreVertical className="w-5 h-5" />
                     </button>
-                    {(res.creatorId === user.id || isAdministrator) ? (
-                      <>
-                        {res.environment !== ResourceEnvironment.PRODUCTION && (
-                          <button 
-                            onClick={() => handlePromoteToProduction(res)}
-                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
-                            title="Solicitar Promoção para Produção"
+                    
+                    {activeDropdown === res.id && (
+                      <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl border border-slate-200 shadow-xl z-50 py-1.5 divide-y divide-slate-100 origin-top-right text-left">
+                        <div className="py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowHistoryModal(res);
+                              setActiveDropdown(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
                           >
-                            <Icons.Lightning className="w-4 h-4" />
+                            <Icons.History className="w-4 h-4 text-slate-400" />
+                            <span>Histórico de Versões</span>
                           </button>
+                          
+                          {res.type === ResourceType.SKILL && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadSkill(res);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-semibold text-teal-600 hover:bg-teal-50 flex items-center gap-2.5 transition-colors"
+                            >
+                              <Icons.Download className="w-4 h-4 text-teal-550" />
+                              <span>Baixar Instruções (TXT)</span>
+                            </button>
+                          )}
+                          
+                          {res.environment !== ResourceEnvironment.PRODUCTION && res.type !== ResourceType.SKILL && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePromoteToProduction(res);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors"
+                            >
+                              <Icons.Lightning className="w-4 h-4 text-emerald-550" />
+                              <span>Solicitar Promoção</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {(res.type !== ResourceType.SKILL || res.creatorId === user.id || isAdministrator) && (
+                          <div className="py-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(res);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                            >
+                              <Icons.Edit className="w-4 h-4 text-slate-400" />
+                              <span>Editar Recurso</span>
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteResource(res.id);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors"
+                            >
+                              <Icons.Trash className="w-4 h-4 text-rose-550" />
+                              <span>Excluir Recurso</span>
+                            </button>
+                          </div>
                         )}
-                        <button 
-                          onClick={() => handleEdit(res)}
-                          className="p-2 text-slate-400 hover:text-sky-600 transition-colors"
-                          title="Editar Recurso"
-                        >
-                          <Icons.Edit />
-                        </button>
-                        <button 
-                          onClick={() => onDeleteResource(res.id)}
-                          className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                          title="Excluir Recurso"
-                        >
-                          <Icons.Trash />
-                        </button>
-                      </>
-                    ) : (
-                      <div className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Somente Leitura</div>
+                      </div>
                     )}
                   </div>
                 </td>

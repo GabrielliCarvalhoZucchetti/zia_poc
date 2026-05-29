@@ -114,7 +114,7 @@ interface CreateResourcePageProps {
   user: User;
   resources: Resource[];
   projects: Project[];
-  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'>) => void;
+  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'> & { environment?: ResourceEnvironment }) => void;
   onUpdateResource: (resource: Resource) => void;
   onDeleteResource: (id: string) => void;
   onCreateRequest: (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => void;
@@ -141,6 +141,9 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [projectId, setProjectId] = useState('');
   const [description, setDescription] = useState('');
   const [createType, setCreateType] = useState<ResourceType>(initialType);
+  const [selectedAutomationSubtype, setSelectedAutomationSubtype] = useState<'simples' | 'ia' | 'integrada' | null>(
+    isEditing ? 'ia' : null
+  );
   const [agentType, setAgentType] = useState<AgentType>(AgentType.READING);
   const [requiredRole, setRequiredRole] = useState<UserRole>(UserRole.INTERMEDIATE);
   const [prompt, setPrompt] = useState('');
@@ -149,6 +152,7 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [webhookHeaders, setWebhookHeaders] = useState('');
   const [webhookBody, setWebhookBody] = useState('');
   const [linkedDocs, setLinkedDocs] = useState<string[]>([]);
+  const [resourceEnvironment, setResourceEnvironment] = useState<ResourceEnvironment>(ResourceEnvironment.STAGING);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
   
@@ -398,6 +402,17 @@ Aqui está o texto do usuário:
       setWebhookHeaders(editingResource.webhookHeaders || '');
       setWebhookBody(editingResource.webhookBody || '');
       setLinkedDocs(editingResource.linkedDocs || []);
+      setResourceEnvironment(editingResource.environment || ResourceEnvironment.STAGING);
+
+      if (editingResource.type === ResourceType.AUTOMATION) {
+        if (!editingResource.model && !editingResource.prompt) {
+          setSelectedAutomationSubtype('simples');
+        } else if (editingResource.webhookUrl) {
+          setSelectedAutomationSubtype('integrada');
+        } else {
+          setSelectedAutomationSubtype('ia');
+        }
+      }
 
       // Se for SKILL, tenta carregar o arquivo associado
       if (editingResource.type === ResourceType.SKILL && editingResource.prompt) {
@@ -471,11 +486,11 @@ Aqui está o texto do usuário:
     }
 
     const finalName = createType === ResourceType.SKILL 
-      ? (skillFile ? (skillFile.name.substring(0, skillFile.name.lastIndexOf('.')) || skillFile.name) : 'Nova Skill')
+      ? (name.trim() || (skillFile ? (skillFile.name.substring(0, skillFile.name.lastIndexOf('.')) || skillFile.name) : 'Nova Skill'))
       : name;
 
     const finalDescription = createType === ResourceType.SKILL
-      ? (description || (skillFile ? `Código carregado para a skill: ${skillFile.name}` : 'Procedimento ou script de skill customizada.'))
+      ? (description.trim() || (skillFile ? `Código carregado para a skill: ${skillFile.name}` : 'Procedimento ou script de skill customizada.'))
       : description;
 
     const finalProjectId = createType === ResourceType.SKILL && !projectId
@@ -489,7 +504,9 @@ Aqui está o texto do usuário:
           fileType: skillFile.type,
           fileContent: skillFile.content || ''
         })
-      : prompt;
+      : (createType === ResourceType.AUTOMATION && selectedAutomationSubtype === 'simples' ? '' : prompt);
+
+    const finalizedModel = createType === ResourceType.AUTOMATION && selectedAutomationSubtype === 'simples' ? undefined : model;
 
     if (isEditing && editingResource) {
       onUpdateResource({
@@ -501,11 +518,12 @@ Aqui está o texto do usuário:
         agentType: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? agentType : undefined,
         requiredRole,
         prompt: finalizedPrompt,
-        model,
+        model: finalizedModel,
         webhookUrl,
         webhookHeaders,
         webhookBody,
-        linkedDocs
+        linkedDocs,
+        environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment
       });
     } else {
       onCreateResource({
@@ -516,11 +534,12 @@ Aqui está o texto do usuário:
         agentType: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? agentType : undefined,
         requiredRole,
         prompt: finalizedPrompt,
-        model,
+        model: finalizedModel,
         webhookUrl,
         webhookHeaders,
         webhookBody,
-        linkedDocs
+        linkedDocs,
+        environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment
       });
     }
     navigate('/resources');
@@ -584,6 +603,193 @@ REQUISITOS OPERACIONAIS:
     // Reset input
     if (e.target) e.target.value = '';
   };
+
+  if (!isEditing && createType === ResourceType.AUTOMATION && !selectedAutomationSubtype) {
+    return (
+      <div className="min-h-full bg-slate-50 flex flex-col items-center justify-center p-6 md:p-12">
+        <div className="max-w-5xl w-full space-y-10 my-auto">
+          
+          {/* Back button and title */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+            <div className="space-y-2 text-left">
+              <button
+                type="button"
+                onClick={() => {
+                  if (initialType === ResourceType.AUTOMATION) {
+                    navigate('/resources');
+                  } else {
+                    setCreateType(ResourceType.AGENT);
+                  }
+                }}
+                className="group inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm cursor-pointer"
+              >
+                <Icons.ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                Voltar
+              </button>
+              
+              <div className="pt-2">
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-150 flex items-center justify-center text-indigo-505 shadow-sm shrink-0">
+                    <Icons.Lightning className="w-5 h-5 animate-pulse" />
+                  </span>
+                  Selecione o Tipo de Automação
+                </h1>
+                <p className="text-sm text-slate-500 mt-2 ml-1 font-semibold">
+                  Escolha o modelo de arquitetura operacional que melhor atende à sua necessidade.
+                </p>
+              </div>
+            </div>
+            
+            <div className="px-5 py-3.5 bg-indigo-50/50 border border-indigo-100 rounded-3xl text-left max-w-sm shrink-0 hidden lg:block">
+              <div className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider">Homologação Ativa</div>
+              <div className="text-[11px] text-slate-500 font-semibold mt-1">
+                Todas as automações são salvas como rascunhos para testes seguros.
+              </div>
+            </div>
+          </div>
+
+          {/* 3 cards: horizontal grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Card 1: Automação simples (sem IA) */}
+            <div 
+              onClick={() => {
+                setSelectedAutomationSubtype('simples');
+                setIsPromptExpanded(false);
+                setIsModelExpanded(false);
+                setIsWebhookExpanded(true); // default option for simple orchestration
+              }}
+              className="group bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:border-indigo-400 hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full text-left"
+            >
+              <div className="w-14 h-14 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center border border-slate-100 mb-6 group-hover:scale-110 group-hover:bg-slate-100 transition-all shadow-sm">
+                <Icons.Workflow className="w-6 h-6 text-slate-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-850 group-hover:text-indigo-600 transition-colors">
+                1. Automação simples (sem IA)
+              </h3>
+              <p className="text-[11px] text-indigo-600 font-extrabold uppercase tracking-wider mt-1.5 font-semibold">Orquestração Direta</p>
+              <p className="text-xs text-slate-500 leading-relaxed font-semibold mt-4 flex-grow">
+                Só orquestra dados — sem prompt, sem RAG, sem LLM.
+              </p>
+              <div className="text-[11px] text-indigo-600 font-medium bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl mt-4 font-semibold italic">
+                Ex: receber um webhook, formatar e enviar para outro sistema.
+              </div>
+            </div>
+
+            {/* Card 2: Automação com IA no meio */}
+            <div 
+              onClick={() => {
+                setSelectedAutomationSubtype('ia');
+                setIsPromptExpanded(true);
+                setIsModelExpanded(true);
+                setIsWebhookExpanded(false);
+              }}
+              className="group bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:border-indigo-400 hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full text-left"
+            >
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center border border-indigo-100 mb-6 group-hover:scale-110 group-hover:bg-indigo-100 transition-all shadow-sm">
+                <Icons.Cpu className="w-6 h-6 text-indigo-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-850 group-hover:text-indigo-600 transition-colors">
+                2. Automação com IA no meio
+              </h3>
+              <p className="text-[11px] text-indigo-600 font-extrabold uppercase tracking-wider mt-1.5 font-semibold">Decisão & Raciocínio</p>
+              <p className="text-xs text-slate-500 leading-relaxed font-semibold mt-4 flex-grow">
+                Tem prompt + modelo — a IA processa algo (classifica, resume, decide). Pode ou não ter RAG dependendo se precisa de base de conhecimento.
+              </p>
+              <div className="text-[11px] text-indigo-600 font-medium bg-indigo-50/40 border border-indigo-100/50 px-3 py-2 rounded-xl mt-4 font-semibold italic">
+                Ideal para: classificação, análise de emails ou decisões automatizadas.
+              </div>
+            </div>
+
+            {/* Card 3: Automação integrada */}
+            <div 
+              onClick={() => {
+                setSelectedAutomationSubtype('integrada');
+                setIsPromptExpanded(true);
+                setIsModelExpanded(true);
+                setIsWebhookExpanded(true); // Webhook integration is enabled by default here
+              }}
+              className="group bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:border-indigo-400 hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full text-left"
+            >
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center border border-emerald-100 mb-6 group-hover:scale-110 group-hover:bg-emerald-100 transition-all shadow-sm">
+                <Icons.ArrowRight className="w-6 h-6 text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-850 group-hover:text-indigo-600 transition-colors">
+                3. Automação integrada
+              </h3>
+              <p className="text-[11px] text-indigo-600 font-extrabold uppercase tracking-wider mt-1.5 font-semibold">Pontes Conectadas</p>
+              <p className="text-xs text-slate-500 leading-relaxed font-semibold mt-4 flex-grow">
+                Tem IA + integração externa — processa com IA e dispara um webhook com o resultado para um sistema legado (ERP, CRM, etc.).
+              </p>
+              <div className="text-[11px] text-indigo-600 font-medium bg-emerald-50/40 border border-emerald-100/50 px-3 py-2 rounded-xl mt-4 font-semibold italic">
+                Ex: extrair dados fiscais com IA e salvar diretamente no ERP.
+              </div>
+            </div>
+
+          </div>
+
+          {/* Help panel / O que você precisa definir antes de configurar */}
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 shadow-sm text-left">
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-150 pb-4 mb-4">
+              <Icons.Info className="w-4 h-4 text-indigo-600 shadow-sm" />
+              O que você precisa definir antes de configurar
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-850">Tem processamento de linguagem?</h5>
+                  <p className="text-[11px] text-slate-500 mt-1 font-semibold leading-normal">
+                    Se sim, escolha o modelo e escreva o prompt nas seções correspondentes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-850">Precisa consultar documentos?</h5>
+                  <p className="text-[11px] text-slate-500 mt-1 font-semibold leading-normal">
+                    Se sim, vincule a Base de Conhecimento (RAG) utilizando o painel de documentos.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-850">O resultado precisa ir para outro sistema?</h5>
+                  <p className="text-[11px] text-slate-500 mt-1 font-semibold leading-normal">
+                    Configure os dados e parâmetros do webhook na seção <span className="font-bold">"Integrar Recurso Externo"</span>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 flex items-center justify-center shrink-0 mt-0.5">
+                  4
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-850">Outro sistema vai acionar essa automação?</h5>
+                  <p className="text-[11px] text-slate-500 mt-1 font-semibold leading-normal">
+                    Ative a opção <span className="font-bold">"Expor Recurso"</span> para gerar de forma automatizada o endpoint de API correspondente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-white flex flex-col">
@@ -659,7 +865,7 @@ REQUISITOS OPERACIONAIS:
               <div className="grid grid-cols-1 gap-6">
                 <div className={createType !== ResourceType.SKILL ? "grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" : "grid grid-cols-1 gap-6 items-start"}>
                   
-                  {/* ACCORDION ROADMAP / CORE ENGINE TYPE */}
+                  {/* ACCORDION ROADMAP / CLASSIFICACAO TYPE */}
                   <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
                     <button
                       type="button"
@@ -668,11 +874,11 @@ REQUISITOS OPERACIONAIS:
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-teal-600 shadow-sm shrink-0">
-                          <Icons.Workflow className="w-5 h-5" />
+                           <Icons.Workflow className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-slate-800">Tipo de Core Engine</h3>
-                          <p className="text-[11px] text-slate-500 font-medium">Selecione o modelo operacional</p>
+                          <h3 className="text-sm font-bold text-slate-800">Classificação</h3>
+                          <p className="text-[11px] text-slate-500 font-medium font-semibold">Selecione o modelo operacional</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -686,11 +892,17 @@ REQUISITOS OPERACIONAIS:
                     </button>
 
                     {isTypeExpanded && (
-                      <div className="p-6 border-t border-slate-100 space-y-4">
+                      <div className="p-6 border-t border-slate-100 space-y-4 text-left">
                         <div className="relative">
                           <select 
                             value={createType} 
-                            onChange={e => setCreateType(e.target.value as ResourceType)} 
+                            onChange={e => {
+                              const val = e.target.value as ResourceType;
+                              setCreateType(val);
+                              if (val === ResourceType.AUTOMATION) {
+                                setSelectedAutomationSubtype(null);
+                              }
+                            }} 
                             className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
                           >
                             <option value={ResourceType.AUTOMATION}>Automação</option>
@@ -700,6 +912,24 @@ REQUISITOS OPERACIONAIS:
                           </select>
                           <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         </div>
+
+                        {createType === ResourceType.AUTOMATION && selectedAutomationSubtype && (
+                          <div className="mt-3 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-center justify-between text-left">
+                            <div className="text-xs font-semibold text-slate-700">
+                              Tipo de Automação: <strong className="text-indigo-600">
+                                {selectedAutomationSubtype === 'simples' ? 'Simples (sem IA)' :
+                                 selectedAutomationSubtype === 'ia' ? 'Com IA no meio' : 'Integrada'}
+                              </strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAutomationSubtype(null)}
+                              className="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
+                            >
+                              Alterar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -845,53 +1075,55 @@ REQUISITOS OPERACIONAIS:
                       </div>
 
                       {/* ACCORDION: Modelo (Engine) */}
-                      <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
-                        <button
-                          type="button"
-                          onClick={() => setIsModelExpanded(!isModelExpanded)}
-                          className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
-                              <Icons.Cpu className="w-5 h-5" />
+                      {selectedAutomationSubtype !== 'simples' && (
+                        <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
+                          <button
+                            type="button"
+                            onClick={() => setIsModelExpanded(!isModelExpanded)}
+                            className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                                <Icons.Cpu className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-bold text-slate-800">Modelo (Engine)</h3>
+                                <p className="text-[11px] text-slate-500 font-medium">Selecione a inteligência artificial (LLM) que irá reprocessar as requisições deste recurso</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="text-sm font-bold text-slate-800">Modelo (Engine)</h3>
-                              <p className="text-[11px] text-slate-500 font-medium">Selecione a inteligência artificial (LLM) que irá reprocessar as requisições deste recurso</p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase tracking-tight">{model}</span>
+                              <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isModelExpanded ? 'rotate-180' : ''}`} />
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase tracking-tight">{model}</span>
-                            <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isModelExpanded ? 'rotate-180' : ''}`} />
-                          </div>
-                        </button>
+                          </button>
 
-                        {isModelExpanded && (
-                          <div className="p-6 border-t border-slate-100 space-y-4">
-                            <div className="relative">
-                              <select 
-                                value={model} 
-                                onChange={e => setModel(e.target.value)}
-                                className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
-                              >
-                                <optgroup label="OpenAI">
-                                  <option value="GPT-4o">GPT-4o</option>
-                                  <option value="GPT-4o-mini">GPT-4o mini</option>
-                                </optgroup>
-                                <optgroup label="Google">
-                                  <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
-                                  <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
-                                </optgroup>
-                                <optgroup label="Anthropic">
-                                  <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
-                                  <option value="Claude 3 Haiku">Claude 3 Haiku</option>
-                                </optgroup>
-                              </select>
-                              <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          {isModelExpanded && (
+                            <div className="p-6 border-t border-slate-100 space-y-4">
+                              <div className="relative">
+                                <select 
+                                  value={model} 
+                                  onChange={e => setModel(e.target.value)}
+                                  className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
+                                >
+                                  <optgroup label="OpenAI">
+                                    <option value="GPT-4o">GPT-4o</option>
+                                    <option value="GPT-4o-mini">GPT-4o mini</option>
+                                  </optgroup>
+                                  <optgroup label="Google">
+                                    <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
+                                    <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
+                                  </optgroup>
+                                  <optgroup label="Anthropic">
+                                    <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
+                                    <option value="Claude 3 Haiku">Claude 3 Haiku</option>
+                                  </optgroup>
+                                </select>
+                                <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
               </div>
@@ -918,11 +1150,57 @@ REQUISITOS OPERACIONAIS:
 
                   {isSkillExpanded && (
                     <div className="p-8 border-t border-slate-100 space-y-6">
-                    <div className="space-y-3">
-                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-                        <span>Arquivo de Skill / Código de Execução</span>
-                        <span className="text-[10px] bg-fuchsia-50 text-fuchsia-600 px-1.5 py-0.5 rounded font-black lowercase tracking-widest leading-none">Obrigatório</span>
-                      </label>
+                      {/* Detalhes de Identificação da Skill */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-200/60 shadow-inner">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-455 uppercase tracking-[0.15em] ml-1 flex items-center gap-2">
+                            <span>Nome de Exibição da Skill</span>
+                            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 rounded font-bold uppercase tracking-tight">Opcional</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="Ex: Consultar API de Vendas"
+                            className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 transition-all focus:outline-none focus:ring-4 focus:ring-fuchsia-500/10 focus:border-fuchsia-500 placeholder:text-slate-400"
+                          />
+                          <p className="text-[10px] text-slate-400 ml-1 font-medium italic">Se vazio, usará o nome do arquivo enviado</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-455 uppercase tracking-[0.15em] ml-1 flex items-center justify-between">
+                            <span>Descrição / Propósito da Skill</span>
+                            <span className="text-[9px] bg-fuchsia-100 text-fuchsia-700 px-1.5 rounded font-bold uppercase tracking-tight">Importante</span>
+                          </label>
+                          <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Descreva o que esta skill faz para que os assistentes/agentes saibam quando utilizá-la..."
+                            className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 transition-all focus:outline-none focus:ring-4 focus:ring-fuchsia-500/10 focus:border-fuchsia-500 resize-none h-[49px] placeholder:text-slate-400 leading-normal"
+                          />
+                        </div>
+
+                        <div className="space-y-2 text-left">
+                          <label className="text-[10px] font-black text-slate-455 uppercase tracking-[0.15em] ml-1 flex items-center justify-between">
+                            <span>Ambiente de Publicação</span>
+                            <span className="text-[9px] bg-sky-100 text-sky-700 px-1.5 rounded font-bold uppercase tracking-tight">Infraestrutura</span>
+                          </label>
+                          <select
+                            value={resourceEnvironment}
+                            onChange={e => setResourceEnvironment(e.target.value as ResourceEnvironment)}
+                            className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 transition-all focus:outline-none focus:ring-4 focus:ring-fuchsia-500/10 focus:border-fuchsia-500 cursor-pointer"
+                          >
+                            <option value={ResourceEnvironment.STAGING}>🛠️ Homologação (STAGING)</option>
+                          </select>
+                          <p className="text-[10px] text-slate-400 ml-1 font-medium italic">Selecione para onde deseja publicar esta Skill</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+                          <span>Arquivo de Skill / Código de Execução</span>
+                          <span className="text-[10px] bg-fuchsia-50 text-fuchsia-600 px-1.5 py-0.5 rounded font-black lowercase tracking-widest leading-none">Obrigatório</span>
+                        </label>
                       
                       {!skillFile ? (
                         <div 
@@ -977,6 +1255,24 @@ REQUISITOS OPERACIONAIS:
                               <button
                                 type="button"
                                 onClick={() => {
+                                  const blob = new Blob([skillFile.content || ''], { type: skillFile.type || 'text/javascript' });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = skillFile.name;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(url);
+                                }}
+                                className="px-4 py-2 text-xs font-bold text-teal-600 hover:text-teal-700 hover:bg-teal-50 border border-teal-100 rounded-xl transition-all flex items-center gap-1"
+                              >
+                                <Icons.Download className="w-3 h-3" />
+                                Download Código
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
                                   setSkillFile(null);
                                   setIsEditingSkillCode(false);
                                 }}
@@ -1026,59 +1322,61 @@ REQUISITOS OPERACIONAIS:
               </section>
             )}
 
-              {/* Seção 2: Inteligência */}
-              {[ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && (
-                <div className="space-y-8">
+            {/* Seção 2: Inteligência */}
+            {[ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && (
+              <div className="space-y-8">
 
-                     {/* ACCORDION: System Prompt & Diretrizes Operacionais */}
-                     <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
-                       <button
-                         type="button"
-                         onClick={() => setIsPromptExpanded(!isPromptExpanded)}
-                         className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
-                       >
-                         <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
-                             <Icons.MessageSquare className="w-5 h-5" />
-                           </div>
-                           <div>
-                             <h3 className="text-sm font-bold text-slate-800">System Prompt & Diretrizes Operacionais</h3>
-                             <p className="text-[11px] text-slate-500 font-medium">Defina as diretrizes operacionais, restrições e comportamento da inteligência artificial</p>
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-3">
-                           {prompt.trim() && (
-                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold uppercase tracking-tight">Configurado</span>
-                           )}
-                           <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isPromptExpanded ? 'rotate-180' : ''}`} />
-                         </div>
-                       </button>
+                {/* ACCORDION: System Prompt & Diretrizes Operacionais */}
+                {selectedAutomationSubtype !== 'simples' && (
+                  <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
+                    <button
+                      type="button"
+                      onClick={() => setIsPromptExpanded(!isPromptExpanded)}
+                      className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
+                          <Icons.MessageSquare className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-800">System Prompt & Diretrizes Operacionais</h3>
+                          <p className="text-[11px] text-slate-500 font-medium">Defina as diretrizes operacionais, restrições e comportamento da inteligência artificial</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {prompt.trim() && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold uppercase tracking-tight">Configurado</span>
+                        )}
+                        <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isPromptExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
 
-                       {isPromptExpanded && (
-                         <div className="p-6 border-t border-slate-100 space-y-4">
-                           <div className="flex items-center justify-between px-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prompt de Instruções</label>
-                             <button 
-                               type="button"
-                               onClick={handleImprovePrompt}
-                               disabled={isImprovingPrompt || !prompt.trim()}
-                               className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-all bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
-                             >
-                               {isImprovingPrompt ? <Icons.Loader className="w-3 h-3 animate-spin" /> : <Icons.Sparkles className="w-3 h-3" />}
-                               {isImprovingPrompt ? 'Refinando Engine...' : 'IA: Otimizar System Prompt'}
-                             </button>
-                           </div>
-                           <textarea 
-                             required 
-                             value={prompt} 
-                             onChange={e => setPrompt(e.target.value)} 
-                             rows={8} 
-                             placeholder="Ex: Você é um assistente sênior da Zucchetti especialista em..." 
-                             className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
-                           ></textarea>
-                         </div>
-                       )}
-                     </div>
+                    {isPromptExpanded && (
+                      <div className="p-6 border-t border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prompt de Instruções</label>
+                          <button 
+                            type="button"
+                            onClick={handleImprovePrompt}
+                            disabled={isImprovingPrompt || !prompt.trim()}
+                            className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-all bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                          >
+                            {isImprovingPrompt ? <Icons.Loader className="w-3 h-3 animate-spin" /> : <Icons.Sparkles className="w-3 h-3" />}
+                            {isImprovingPrompt ? 'Refinando Engine...' : 'IA: Otimizar System Prompt'}
+                          </button>
+                        </div>
+                        <textarea 
+                          required 
+                          value={prompt} 
+                          onChange={e => setPrompt(e.target.value)} 
+                          rows={8} 
+                          placeholder="Ex: Você é um assistente sênior da Zucchetti especialista em..." 
+                          className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
+                        ></textarea>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                     {/* ACCORDION SIDE-BY-SIDE SIDE PANEL */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -1205,7 +1503,8 @@ REQUISITOS OPERACIONAIS:
                     </div>
 
                     {/* ACCORDION 2: Base de Conhecimento (RAG) */}
-                    <div className="col-span-full border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all mt-6">
+                    {selectedAutomationSubtype !== 'simples' && (
+                      <div className="col-span-full border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all mt-6 font-sans">
                       <button
                         type="button"
                         onClick={() => setIsRagExpanded(!isRagExpanded)}
@@ -1384,6 +1683,7 @@ REQUISITOS OPERACIONAIS:
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                 )}
 
