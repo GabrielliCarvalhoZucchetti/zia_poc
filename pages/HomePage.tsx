@@ -176,10 +176,6 @@ const HomePage: React.FC = () => {
                   </p>
                 </div>
               </div>
-
-              <div className="w-full text-center py-2 bg-emerald-100/50 text-emerald-600 rounded-xl text-xs font-bold font-mono tracking-wider">
-                VERIFICADO
-              </div>
             </div>
 
             {/* Mission Card 2 */}
@@ -189,8 +185,8 @@ const HomePage: React.FC = () => {
                   <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-600 border border-sky-100">
                     <Icons.Send className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 bg-sky-50 px-2.5 py-0.5 rounded-md border border-sky-100">
-                    PENDENTE
+                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 bg-sky-550 bg-sky-50 px-2.5 py-0.5 rounded-md border border-sky-100">
+                    ATUAL
                   </span>
                 </div>
                 <div>
@@ -200,10 +196,6 @@ const HomePage: React.FC = () => {
                   </p>
                 </div>
               </div>
-
-              <button className="w-full text-center py-2.5 bg-sky-600 font-extrabold hover:bg-sky-700 text-white rounded-xl text-xs transition-colors shadow-sm cursor-pointer">
-                ACESSAR AGORA
-              </button>
             </div>
 
             {/* Mission Card 3 */}
@@ -214,7 +206,7 @@ const HomePage: React.FC = () => {
                     <Icons.AgentBuilder className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-md">
-                    BLOQUEADA
+                    PRÓXIMA
                   </span>
                 </div>
                 <div>
@@ -223,10 +215,6 @@ const HomePage: React.FC = () => {
                     Crie um assistente ou agente de IA via Gestão de Recursos e se torne um AI Builder
                   </p>
                 </div>
-              </div>
-
-              <div className="w-full text-center py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed">
-                MISSÃO BLOQUEADA
               </div>
             </div>
 
@@ -238,7 +226,7 @@ const HomePage: React.FC = () => {
                     <Icons.Lab className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-md">
-                    BLOQUEADA
+                    PRÓXIMA
                   </span>
                 </div>
                 <div>
@@ -247,10 +235,6 @@ const HomePage: React.FC = () => {
                     Tenha ao menos um recurso de IA homologado pelo time de Innovation & Research e se torne um AI Champion
                   </p>
                 </div>
-              </div>
-
-              <div className="w-full text-center py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed">
-                MISSÃO BLOQUEADA
               </div>
             </div>
 
