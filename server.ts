@@ -33,7 +33,7 @@ async function startServer() {
           { role: 'user', parts: [{ text: prompt }] }
         ],
         config: {
-          systemInstruction: systemInstruction || "You are ZIA, a highly capable AI agent manager. Assist the user with their queries.",
+          systemInstruction: systemInstruction || "You are Luna, a highly capable AI agent manager. Assist the user with their queries.",
           temperature: 0.7,
         },
       });

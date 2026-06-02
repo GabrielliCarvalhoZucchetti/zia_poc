@@ -7,7 +7,7 @@ const DocumentationPage: React.FC = () => {
     <div className="p-8 max-w-5xl mx-auto space-y-12 pb-24">
       <div className="space-y-4 text-center">
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Arquitetura de Permissionamento</h1>
-        <p className="text-xl text-slate-500 max-w-2xl mx-auto">Entenda como a ZIA gerencia papéis, autorização de agentes e a governança de dados.</p>
+        <p className="text-xl text-slate-500 max-w-2xl mx-auto">Entenda como a Luna gerencia papéis, autorização de agentes e a governança de dados.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -68,7 +68,7 @@ const DocumentationPage: React.FC = () => {
            <div className="flex flex-col md:flex-row gap-8 items-center">
               <div className="flex-1 space-y-4">
                  <p className="text-slate-600 text-sm leading-relaxed">
-                    Recursos na ZIA são "Unidades Atômicas" que combinam capacidades de LLM com dados proprietários. 
+                    Recursos na Luna são "Unidades Atômicas" que combinam capacidades de LLM com dados proprietários. 
                     Quando você cria um recurso de **Documentação**, o sistema aciona automaticamente um pipeline de vetorização (RAG).
                  </p>
                  <ul className="space-y-2">
@@ -103,7 +103,7 @@ const DocumentationPage: React.FC = () => {
                  </div>
                  <h2 className="text-3xl font-bold tracking-tight">Homologação vs. Produção</h2>
                  <p className="text-slate-400 text-sm leading-relaxed">
-                    A ZIA utiliza um sistema de isolamento de ambientes para garantir que novos agentes e documentos sejam validados antes de estarem disponíveis para toda a organização.
+                    A Luna utiliza um sistema de isolamento de ambientes para garantir que novos agentes e documentos sejam validados antes de estarem disponíveis para toda a organização.
                  </p>
               </div>
               <div className="grid grid-cols-1 gap-4">
@@ -136,7 +136,7 @@ const DocumentationPage: React.FC = () => {
               </div>
               <div>
                  <h2 className="text-2xl font-bold text-slate-800">Integração via Webhooks</h2>
-                 <p className="text-sm text-slate-500">Conecte a ZIA ao n8n, Lovable, Make ou sistemas proprietários.</p>
+                  <p className="text-sm text-slate-500">Conecte a Luna ao n8n, Lovable, Make ou sistemas proprietários.</p>
               </div>
            </div>
            
@@ -144,7 +144,7 @@ const DocumentationPage: React.FC = () => {
               <div className="space-y-3">
                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Como Funciona</div>
                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Ao configurar uma URL de Webhook em um Agente, a ZIA deixa de processar a resposta internamente e delega a execução para o seu endpoint externo.
+                    Ao configurar uma URL de Webhook em um Agente, a Luna deixa de processar a resposta internamente e delega a execução para o seu endpoint externo.
                  </p>
               </div>
               <div className="space-y-3">
@@ -161,7 +161,7 @@ const DocumentationPage: React.FC = () => {
               <div className="space-y-3">
                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resposta Esperada</div>
                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Seu sistema deve retornar um JSON. A ZIA buscará a resposta nos campos: <code className="bg-slate-100 px-1 rounded text-sky-600">response</code>, <code className="bg-slate-100 px-1 rounded text-sky-600">output</code> ou <code className="bg-slate-100 px-1 rounded text-sky-600">text</code>.
+                    Seu sistema deve retornar um JSON. A Luna buscará a resposta nos campos: <code className="bg-slate-100 px-1 rounded text-sky-600">response</code>, <code className="bg-slate-100 px-1 rounded text-sky-600">output</code> ou <code className="bg-slate-100 px-1 rounded text-sky-600">text</code>.
                  </p>
               </div>
            </div>

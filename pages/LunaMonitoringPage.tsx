@@ -113,7 +113,7 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     id: 'l1',
     author: 'Sistema POS',
     resource: 'Assistente Geral',
-    apiKeyName: 'ZIA_KEY_01',
+    apiKeyName: 'LUNA_KEY_01',
     input: 'Qual o faturamento de Março?',
     model: 'GPT-4o',
     output: 'O faturamento total de Março foi de R$ 1.250.000,00, representando um aumento de 15% em relação a Fevereiro.',
@@ -125,7 +125,7 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     id: 'l2',
     author: 'App Mobile',
     resource: 'Gestor de Base',
-    apiKeyName: 'ZIA_KEY_02',
+    apiKeyName: 'LUNA_KEY_02',
     input: 'Analise o churn rate do time POS.',
     model: 'Claude 3.5 Sonnet',
     output: 'O churn rate do time POS está em 4.2%. Os principais motivos identificados são falta de engajamento no primeiro mês e preço.',
@@ -137,7 +137,7 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     id: 'l3',
     author: 'Dashboard Administrativo',
     resource: 'Auditor de Sistema',
-    apiKeyName: 'ZIA_KEY_01',
+    apiKeyName: 'LUNA_KEY_01',
     input: 'Verificar logs de erro do módulo ERP.',
     model: 'GPT-4o mini',
     output: 'Foram encontrados 3 alertas críticos nas últimas 24 horas relacionados à conexão com o banco de dados.',
@@ -149,7 +149,7 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     id: 'l4',
     author: 'Portal do Cliente',
     resource: 'Doc ClippPro',
-    apiKeyName: 'ZIA_KEY_DOCS',
+    apiKeyName: 'LUNA_KEY_DOCS',
     input: 'Como configurar o certificado digital?',
     model: 'Gemini 1.5 Flash',
     output: 'Para configurar o certificado, acesse Menu > Configurações > Certificado e selecione o arquivo .pfx importado.',
@@ -161,7 +161,7 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     id: 'l5',
     author: 'Sistema ERP',
     resource: 'Assistente Geral',
-    apiKeyName: 'ZIA_KEY_01',
+    apiKeyName: 'LUNA_KEY_01',
     input: 'Resuma o último e-mail recebido.',
     model: 'GPT-4o',
     output: 'O e-mail trata da nova política de home-office que será implementada a partir de Junho nas unidades administrativas.',
@@ -177,7 +177,7 @@ const MOCK_API_KEYS: ApiKey[] = [
     name: 'PROD_INTEGRATION_01',
     resourceId: 'r1',
     resourceName: 'Assistente Geral',
-    key: 'zia_prod_...4k92',
+    key: 'luna_prod_...4k92',
     status: 'Ativa',
     createdAt: '2026-01-15',
     lastUsed: '2026-04-23 15:45',
@@ -188,7 +188,7 @@ const MOCK_API_KEYS: ApiKey[] = [
     name: 'STAGING_TEST_KEY',
     resourceId: 'r3',
     resourceName: 'Gestor de Base',
-    key: 'zia_stg_...1a88',
+    key: 'luna_stg_...1a88',
     status: 'Ativa',
     createdAt: '2026-02-10',
     lastUsed: '2026-04-23 14:20',
@@ -199,7 +199,7 @@ const MOCK_API_KEYS: ApiKey[] = [
     name: 'LEGACY_KEY',
     resourceId: 'r1',
     resourceName: 'Assistente Geral',
-    key: 'zia_old_...9f22',
+    key: 'luna_old_...9f22',
     status: 'Revogada',
     createdAt: '2025-11-20',
     lastUsed: '2026-01-05 10:00',
@@ -210,7 +210,7 @@ const MOCK_API_KEYS: ApiKey[] = [
     name: 'AUDIT_INTERNAL',
     resourceId: 'r4',
     resourceName: 'Auditor de Sistema',
-    key: 'zia_aud_...m5p1',
+    key: 'luna_aud_...m5p1',
     status: 'Ativa',
     createdAt: '2026-03-05',
     lastUsed: '2026-04-23 09:30',
@@ -234,7 +234,7 @@ const MOCK_RESOURCE_COSTS = [
   { name: 'Doc ClippPro', cost: 35, interactions: 8900 }
 ];
 
-const ZiaMonitoringPage: React.FC = () => {
+const LunaMonitoringPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'costs' | 'keys'>('logs');
   const [period, setPeriod] = useState('Últimos 30 dias');
   const [showFilters, setShowFilters] = useState(false);
@@ -891,7 +891,7 @@ const ZiaMonitoringPage: React.FC = () => {
             <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Logs de Interação Zia API</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Logs de Interação Luna API</h3>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-xs text-slate-400 font-medium">Exibindo interações em tempo real</div>
@@ -1042,7 +1042,7 @@ const ZiaMonitoringPage: React.FC = () => {
             <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Gestão de Chaves Zia API</h3>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Gestão de Chaves Luna API</h3>
                   <p className="text-xs text-slate-400 mt-1">Gerencie o acesso programático para seus Agentes e Assistentes</p>
                 </div>
                 <button className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-sky-100">
@@ -1110,7 +1110,7 @@ const ZiaMonitoringPage: React.FC = () => {
                 <h4 className="text-sm font-bold text-amber-900">Segurança de Chaves</h4>
                 <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                   As chaves de API concedem acesso total aos recursos vinculados. Nunca compartilhe chaves em ambientes públicos ou no frontend das aplicações. 
-                  Sempre use um Proxy Seguro ou as bibliotecas oficiais da ZIA para integração.
+                  Sempre use um Proxy Seguro ou as bibliotecas oficiais da LUNA para integração.
                 </p>
               </div>
               <button className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-all shadow-md shadow-amber-100">
@@ -1124,4 +1124,4 @@ const ZiaMonitoringPage: React.FC = () => {
   );
 };
 
-export default ZiaMonitoringPage;
+export default LunaMonitoringPage;

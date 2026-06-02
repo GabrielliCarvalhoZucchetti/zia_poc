@@ -37,7 +37,7 @@ const AppsPage: React.FC = () => {
       <div className="p-12 max-w-[1850px] mx-auto space-y-10">
         <div>
           <h1 className="text-[40px] font-bold text-slate-800 leading-tight">Aplicações</h1>
-          <p className="text-lg text-slate-500 mt-2">Explore e gerencie as ferramentas integradas ao ecossistema ZIA.</p>
+          <p className="text-lg text-slate-500 mt-2">Explore e gerencie as ferramentas integradas ao ecossistema Luna.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

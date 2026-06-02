@@ -10,7 +10,7 @@ import ResourceManagementPage from './pages/ResourceManagementPage';
 import DocumentationPage from './pages/DocumentationPage';
 import LabPage from './pages/LabPage';
 import AuditLogsPage from './pages/AuditLogsPage';
-import ZiaMonitoringPage from './pages/ZiaMonitoringPage';
+import LunaMonitoringPage from './pages/LunaMonitoringPage';
 import AccessRequestsPage from './pages/AccessRequestsPage';
 import AppsPage from './pages/AppsPage';
 import WhatsAppMonitorPage from './pages/WhatsAppMonitorPage';
@@ -155,7 +155,7 @@ const AppInner: React.FC = () => {
     id: 'u1',
     name: 'Gabrielli Carvalho',
     role: UserRole.ADMINISTRATOR,
-    avatar: 'https://picsum.photos/seed/zia-user/100/100',
+    avatar: 'https://picsum.photos/seed/luna-user/100/100',
     bu: 'Desenvolvimento'
   });
 
@@ -538,7 +538,7 @@ const AppInner: React.FC = () => {
                 </div>
               } />
               <Route path="/audit" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AuditLogsPage /></div>} />
-              <Route path="/zia-monitoring" element={<ZiaMonitoringPage />} />
+              <Route path="/luna-monitoring" element={<LunaMonitoringPage />} />
               <Route path="/docs" element={<div className="flex-1 overflow-y-auto bg-slate-50"><DocumentationPage /></div>} />
               <Route path="/access-requests" element={
                 user.role === UserRole.ADMINISTRATOR ? (

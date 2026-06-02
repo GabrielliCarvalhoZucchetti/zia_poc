@@ -255,7 +255,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
         <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 mb-6">
           <Icons.Chat />
         </div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Bem-vindo à ZIA</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Bem-vindo à Luna</h2>
         <p className="text-slate-500 max-w-md">Selecione um Agente de IA para começar.</p>
       </div>
     );
@@ -489,7 +489,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
               )}
               
               <div className="mt-4 text-[10px] text-slate-400 font-medium tracking-tight">
-                ZIA pode cometer erros. Considere verificar informações importantes.
+                Luna pode cometer erros. Considere verificar informações importantes.
               </div>
             </div>
           </div>

@@ -41,7 +41,7 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
   const [scope, setScope] = useState('Interno');
   const [deadline, setDeadline] = useState('');
   const [email, setEmail] = useState('');
-  const [projectType, setProjectType] = useState<'Agente' | 'Assistente' | 'Automação'>('Assistente');
+  const [projectType, setProjectType] = useState<'Agente' | 'Assistente'>('Assistente');
 
   const columns: { id: Project['status']; label: string; color: string }[] = [
     { id: 'TRIAGEM', label: 'Em triagem', color: 'bg-slate-100' },
@@ -264,7 +264,6 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
                       >
                         <option value="Assistente">Assistente</option>
                         <option value="Agente">Agente</option>
-                        <option value="Automação">Automação</option>
                       </select>
                     </div>
                     <div className="space-y-2">
