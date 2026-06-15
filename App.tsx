@@ -152,6 +152,26 @@ const INITIAL_REQUESTS: AccessRequest[] = [
 ];
 
 const AppInner: React.FC = () => {
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('luna_dark_mode') === 'true';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const newVal = !prev;
+      localStorage.setItem('luna_dark_mode', String(newVal));
+      return newVal;
+    });
+  };
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('luna_auth') === 'true';
   });
@@ -491,7 +511,7 @@ const AppInner: React.FC = () => {
   }, [visibleResources, activeResource]);
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
   }
 
   return (
@@ -506,6 +526,8 @@ const AppInner: React.FC = () => {
             activeResource={activeResource}
             setActiveResource={setActiveResource}
             onLogout={handleLogout}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={toggleDarkMode}
           />
           
           {/* Removido o overflow-y-auto global para permitir que o Chat controle seu próprio scroll de 100% de altura */}
@@ -571,7 +593,7 @@ const AppInner: React.FC = () => {
                 </div>
               } />
               <Route path="/audit" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AuditLogsPage /></div>} />
-              <Route path="/luna-monitoring" element={<LunaMonitoringPage />} />
+              <Route path="/luna-monitoring" element={<LunaMonitoringPage isDarkMode={isDarkMode} />} />
               <Route path="/docs" element={<div className="flex-1 overflow-y-auto bg-slate-50"><DocumentationPage /></div>} />
               <Route path="/access-requests" element={
                 user.role === UserRole.ADMINISTRATOR ? (

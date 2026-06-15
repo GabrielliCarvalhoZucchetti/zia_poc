@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Sun, Moon } from 'lucide-react';
 import { User, UserRole } from '../types';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
+  isDarkMode?: boolean;
+  toggleDarkMode?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isDarkMode = false, toggleDarkMode }) => {
   const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
   
   // Mouse hover tracking for the grid
@@ -145,8 +148,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   };
 
   return (
-    <div id="login-layout-container" className="min-h-screen bg-[#f4f7fe] flex flex-col md:flex-row select-none overflow-x-hidden font-sans">
+    <div id="login-layout-container" className="min-h-screen bg-[#f4f7fe] dark:bg-[#030712] transition-colors duration-300 flex flex-col md:flex-row select-none overflow-x-hidden font-sans relative">
       
+      {/* Absolute theme toggle for LoginPage */}
+      {toggleDarkMode && (
+        <button 
+          onClick={toggleDarkMode}
+          className="absolute top-6 right-6 z-50 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-amber-400 shadow-sm hover:opacity-90 transition-all cursor-pointer flex items-center justify-center"
+          title={isDarkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+        >
+          {isDarkMode ? <Sun className="w-5 h-5 text-amber-500 animate-pulse" /> : <Moon className="w-5 h-5 text-slate-400" />}
+        </button>
+      )}
+
       {/* Left side: LUNA brand & concept showcase */}
       <motion.div 
         initial={{ x: -120, opacity: 0 }}
@@ -155,7 +169,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="w-full md:w-1/2 bg-gradient-to-tr from-[#edf2fd] via-[#f4f7ff] to-[#ebf0fc] flex flex-col justify-between p-8 md:p-16 relative overflow-hidden border-b md:border-b-0 md:border-r border-slate-100 min-h-[340px] md:min-h-screen cursor-default"
+        className="w-full md:w-1/2 bg-gradient-to-tr from-[#edf2fd] via-[#f4f7ff] to-[#ebf0fc] dark:from-[#0d1425] dark:via-[#090d16] dark:to-[#11192d] flex flex-col justify-between p-8 md:p-16 relative overflow-hidden border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-900 min-h-[340px] md:min-h-screen cursor-default"
       >
         {/* Subtle decorative grid/network overlay */}
         <div className="absolute inset-0 pointer-events-none opacity-[0.22]">
@@ -275,12 +289,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
           className="my-auto py-10 md:py-20 relative z-10 max-w-md"
         >
-          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-blue-100 shadow-sm mb-5">
+          <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-900/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-blue-100 dark:border-slate-800 shadow-sm mb-5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3b66f5]"></span>
             </span>
-            <span className="text-[10px] font-black text-slate-705 uppercase tracking-widest font-mono">LUNA Ecosystem</span>
+            <span className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest font-mono">LUNA Ecosystem</span>
           </div>
 
           <motion.div 
@@ -304,22 +318,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 {/* Outer Crescent */}
                 <path
                   d="M 35.5,23.7 A 28,28 0 1,0 66.4,32.0"
-                  stroke="#000c3a"
+                  stroke={isDarkMode ? "#ffffff" : "#000c3a"}
                   strokeWidth="13"
                   strokeLinecap="round"
                   fill="none"
                 />
                 {/* Center Planet */}
-                <circle cx="45" cy="50" r="11.5" fill="#000c3a" />
+                <circle cx="45" cy="50" r="11.5" fill={isDarkMode ? "#60a5fa" : "#000c3a"} />
                 {/* Top Right Dot */}
-                <circle cx="71.3" cy="18.6" r="7.5" fill="#000c3a" />
+                <circle cx="71.3" cy="18.6" r="7.5" fill={isDarkMode ? "#60a5fa" : "#000c3a"} />
               </motion.g>
 
               {/* Letter L */}
               <motion.path
                 variants={letterVariants}
                 d="M 110,32 V 58 A 12,12 0 0,0 122,70 H 138"
-                stroke="#000c3a"
+                stroke={isDarkMode ? "#ffffff" : "#000c3a"}
                 strokeWidth="11"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -330,20 +344,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <motion.g variants={letterVariants}>
                 <path
                   d="M 154,32 V 58 A 14,14 0 0,0 182,58 V 32"
-                  stroke="#000c3a"
+                  stroke={isDarkMode ? "#ffffff" : "#000c3a"}
                   strokeWidth="11"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   fill="none"
                 />
-                <circle cx="168" cy="46" r="5.5" fill="#000c3a" />
+                <circle cx="168" cy="46" r="5.5" fill={isDarkMode ? "#60a5fa" : "#000c3a"} />
               </motion.g>
 
               {/* Letter N */}
               <motion.path
                 variants={letterVariants}
                 d="M 198,70 V 44 A 14,14 0 0,1 226,44 V 70"
-                stroke="#000c3a"
+                stroke={isDarkMode ? "#ffffff" : "#000c3a"}
                 strokeWidth="11"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -354,13 +368,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <motion.g variants={letterVariants}>
                 <path
                   d="M 242,70 V 44 A 14,14 0 0,1 270,44 V 70"
-                  stroke="#000c3a"
+                  stroke={isDarkMode ? "#ffffff" : "#000c3a"}
                   strokeWidth="11"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   fill="none"
                 />
-                <circle cx="256" cy="57" r="5.5" fill="#000c3a" />
+                <circle cx="256" cy="57" r="5.5" fill={isDarkMode ? "#60a5fa" : "#000c3a"} />
               </motion.g>
             </svg>
           </motion.div>
@@ -369,7 +383,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             variants={tagVariants}
             initial="hidden"
             animate="visible"
-            className="text-xl md:text-2xl font-bold text-slate-600 tracking-tight leading-snug flex flex-wrap"
+            className="text-xl md:text-2xl font-bold text-slate-600 dark:text-slate-400 tracking-tight leading-snug flex flex-wrap"
           >
             {Array.from("Linking Users and Networked Agents.").map((char, index) => (
               <motion.span 
@@ -384,13 +398,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </motion.div>
 
         {/* Bottom copyright on the left panel */}
-        <div className="text-[11px] font-bold text-slate-400 relative z-10 pl-1">
+        <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 relative z-10 pl-1">
           2026 © Zucchetti
         </div>
       </motion.div>
 
       {/* Right side: Login & Form Actions Column */}
-      <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center p-6 md:p-12 relative overflow-y-auto min-h-[520px]">
+      <div className="w-full md:w-1/2 bg-white dark:bg-slate-950 flex flex-col justify-center items-center p-6 md:p-12 relative overflow-y-auto min-h-[520px] transition-colors duration-300">
         
         <div className="w-full max-w-md my-auto py-8">
           
@@ -398,20 +412,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <div className="flex flex-col items-center text-center w-full mb-8 animate-in fade-in duration-500">
             {view === 'login' && (
               <>
-                <h1 className="text-2.5xl font-black text-[#030d26] tracking-tight mb-2">Bem-vindo de volta</h1>
-                 <p className="text-xs font-bold text-slate-500">Entre na sua conta para continuar</p>
+                <h1 className="text-2.5xl font-black text-[#030d26] dark:text-white tracking-tight mb-2">Bem-vindo de volta</h1>
+                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Entre na sua conta para continuar</p>
               </>
             )}
             {view === 'register' && (
               <>
-                <h1 className="text-2.5xl font-black text-[#030d26] tracking-tight mb-2">Criar sua conta</h1>
-                <p className="text-xs font-bold text-slate-500">Comece a usar nossa plataforma hoje mesmo</p>
+                <h1 className="text-2.5xl font-black text-[#030d26] dark:text-white tracking-tight mb-2">Criar sua conta</h1>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Comece a usar nossa plataforma hoje mesmo</p>
               </>
             )}
             {view === 'forgot' && (
               <>
-                <h1 className="text-2.5xl font-black text-[#030d26] tracking-tight mb-2">Esqueceu sua senha?</h1>
-                <p className="text-xs font-bold text-slate-500">Digite seu email para receber um código de recuperação</p>
+                <h1 className="text-2.5xl font-black text-[#030d26] dark:text-white tracking-tight mb-2">Esqueceu sua senha?</h1>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Digite seu email para receber um código de recuperação</p>
               </>
             )}
           </div>
@@ -429,8 +443,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 {/* Email field */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 block">Email</label>
-                  <div className="relative flex items-center bg-[#edf2fd] rounded-lg border border-transparent focus-within:border-[#3b66f5]/40 transition-all">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Email</label>
+                  <div className="relative flex items-center bg-[#edf2fd] dark:bg-slate-900 rounded-lg border border-transparent dark:border-slate-850 focus-within:border-[#3b66f5]/40 transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="20" height="16" x="2" y="4" rx="2" />
@@ -442,7 +456,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       placeholder="seu.email@zucchetti.com"
-                      className="w-full pl-12 pr-4 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-4 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                       required
                     />
                   </div>
@@ -451,9 +465,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 {/* Password field */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-500 block">Senha</label>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Senha</label>
                   </div>
-                  <div className="relative flex items-center bg-[#edf2fd] rounded-lg border border-transparent focus-within:border-[#3b66f5]/40 transition-all">
+                  <div className="relative flex items-center bg-[#edf2fd] dark:bg-slate-900 rounded-lg border border-transparent dark:border-slate-850 focus-within:border-[#3b66f5]/40 transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
@@ -465,13 +479,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="Sua senha"
-                      className="w-full pl-12 pr-12 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-12 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                       required
                     />
                     <button 
                       type="button"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-4 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="absolute right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                     >
                       {showLoginPassword ? (
                         <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,19 +520,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   <button 
                     type="button"
                     onClick={() => setView('forgot')}
-                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline"
+                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline cursor-pointer"
                   >
                     Esqueceu sua senha?
                   </button>
                 </div>
 
                 {/* Create account section */}
-                <div className="text-center text-xs font-semibold text-slate-500 border-t border-slate-100 pt-4 mt-2">
+                <div className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-900 pt-4 mt-2">
                   Não tem uma conta?{' '}
                   <button 
                     type="button"
                     onClick={() => setView('register')}
-                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline ml-1"
+                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline ml-1 cursor-pointer"
                   >
                     Criar conta
                   </button>
@@ -532,8 +546,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 
                 {/* Nome */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">Nome Completo *</label>
-                  <div className="relative flex items-center bg-white rounded-lg border border-slate-200 focus-within:border-[#3b66f5] transition-all">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Nome Completo *</label>
+                  <div className="relative flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 focus-within:border-[#3b66f5] transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -545,7 +559,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       placeholder="João Silva"
-                      className="w-full pl-12 pr-4 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-4 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                       required
                     />
                   </div>
@@ -553,8 +567,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                 {/* Email Corporativo */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">Email Corporativo *</label>
-                  <div className="relative flex items-center bg-[#edf2fd] rounded-lg border border-transparent focus-within:border-[#3b66f5]/40 transition-all">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Email Corporativo *</label>
+                  <div className="relative flex items-center bg-[#edf2fd] dark:bg-slate-900 rounded-lg border border-transparent dark:border-slate-850 focus-within:border-[#3b66f5]/40 transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="20" height="16" x="2" y="4" rx="2" />
@@ -566,19 +580,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="seu.email@zucchetti.com"
-                      className="w-full pl-12 pr-4 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-4 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                       required
                     />
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-400 block pl-1">
+                  <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block pl-1">
                     Emails @zucchetti.com ou @elofy.com.br
                   </span>
                 </div>
 
                 {/* BU */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">BU *</label>
-                  <div className="relative flex items-center bg-white rounded-lg border border-slate-200 focus-within:border-[#3b66f5] transition-all pr-3">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">BU *</label>
+                  <div className="relative flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 focus-within:border-[#3b66f5] transition-all pr-3">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect x="2" y="2" width="20" height="20" rx="2" ry="2"/>
@@ -588,18 +602,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     <select 
                       value={regBU}
                       onChange={(e) => setRegBU(e.target.value)}
-                      className="w-full pl-12 pr-8 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 appearance-none cursor-pointer"
+                      className="w-full pl-12 pr-8 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 dark:bg-slate-900 appearance-none cursor-pointer"
                       required
                     >
-                      <option value="" disabled>Selecione sua BU</option>
-                      <option value="Desenvolvimento">Desenvolvimento</option>
-                      <option value="ERP">ERP</option>
-                      <option value="POS">POS</option>
-                      <option value="Comercial">Comercial</option>
-                      <option value="Staff">Staff</option>
-                      <option value="Administração">Administração</option>
-                      <option value="HR TECH">HR TECH</option>
-                      <option value="IA & Inovação">IA & Inovação</option>
+                      <option value="" disabled className="dark:bg-slate-900">Selecione sua BU</option>
+                      <option value="Desenvolvimento" className="dark:bg-slate-900">Desenvolvimento</option>
+                      <option value="ERP" className="dark:bg-slate-900">ERP</option>
+                      <option value="POS" className="dark:bg-slate-900">POS</option>
+                      <option value="Comercial" className="dark:bg-slate-900">Comercial</option>
+                      <option value="Staff" className="dark:bg-slate-900">Staff</option>
+                      <option value="Administração" className="dark:bg-slate-900">Administração</option>
+                      <option value="HR TECH" className="dark:bg-slate-900">HR TECH</option>
+                      <option value="IA & Inovação" className="dark:bg-slate-900">IA & Inovação</option>
                     </select>
                     <div className="pointer-events-none absolute right-4 text-slate-400">
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
@@ -611,8 +625,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                 {/* Setor */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">Setor *</label>
-                  <div className="relative flex items-center bg-white rounded-lg border border-slate-200 focus-within:border-[#3b66f5] transition-all pr-3">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Setor *</label>
+                  <div className="relative flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 focus-within:border-[#3b66f5] transition-all pr-3">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M16 21v-2a4 4 0 0 0-3-3.87"/>
@@ -622,19 +636,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     <select 
                       value={regSector}
                       onChange={(e) => setRegSector(e.target.value)}
-                      className="w-full pl-12 pr-8 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 appearance-none cursor-pointer"
+                      className="w-full pl-12 pr-8 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 dark:bg-slate-900 appearance-none cursor-pointer"
                       required
                     >
-                      <option value="" disabled>Selecione seu Setor</option>
-                      <option value="TI / Infraestrutura">TI / Infraestrutura</option>
-                      <option value="Desenvolvimento de Softwares">Desenvolvimento de Softwares</option>
-                      <option value="Produto & Qualidade">Produto & Qualidade</option>
-                      <option value="Suporte Técnico">Suporte Técnico</option>
-                      <option value="Comercial & Vendas">Comercial & Vendas</option>
-                      <option value="Qualidade (QA)">Qualidade (QA)</option>
-                      <option value="Recursos Humanos">Recursos Humanos</option>
-                      <option value="Financeiro">Financeiro</option>
-                      <option value="Inovação / IA">Inovação / IA</option>
+                      <option value="" disabled className="dark:bg-slate-900">Selecione seu Setor</option>
+                      <option value="TI / Infraestrutura" className="dark:bg-slate-900">TI / Infraestrutura</option>
+                      <option value="Desenvolvimento de Softwares" className="dark:bg-slate-900">Desenvolvimento de Softwares</option>
+                      <option value="Produto & Qualidade" className="dark:bg-slate-900">Produto & Qualidade</option>
+                      <option value="Suporte Técnico" className="dark:bg-slate-900">Suporte Técnico</option>
+                      <option value="Comercial & Vendas" className="dark:bg-slate-900">Comercial & Vendas</option>
+                      <option value="Qualidade (QA)" className="dark:bg-slate-900">Qualidade (QA)</option>
+                      <option value="Recursos Humanos" className="dark:bg-slate-900">Recursos Humanos</option>
+                      <option value="Financeiro" className="dark:bg-slate-900">Financeiro</option>
+                      <option value="Inovação / IA" className="dark:bg-slate-900">Inovação / IA</option>
                     </select>
                     <div className="pointer-events-none absolute right-4 text-slate-400">
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
@@ -646,8 +660,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                 {/* Senha */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">Senha *</label>
-                  <div className="relative flex items-center bg-[#edf2fd] rounded-lg border border-transparent focus-within:border-[#3b66f5]/40 transition-all">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Senha *</label>
+                  <div className="relative flex items-center bg-[#edf2fd] dark:bg-slate-900 rounded-lg border border-transparent dark:border-slate-850 focus-within:border-[#3b66f5]/40 transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
@@ -659,13 +673,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="Mínimo 6 caracteres"
-                      className="w-full pl-12 pr-12 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-12 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                       required
                     />
                     <button 
                       type="button"
                       onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute right-4 text-slate-400 hover:text-slate-600"
+                      className="absolute right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                     >
                       {showRegPassword ? (
                         <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -684,8 +698,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                 {/* Confirmar Senha */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 block">Confirmar Senha *</label>
-                  <div className="relative flex items-center bg-white rounded-lg border border-slate-200 focus-within:border-[#3b66f5] transition-all">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Confirmar Senha *</label>
+                  <div className="relative flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 focus-within:border-[#3b66f5] transition-all">
                     <div className="absolute left-4 text-slate-400">
                       <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
@@ -697,13 +711,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
                       placeholder="Repita sua senha"
-                      className="w-full pl-12 pr-12 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                      className="w-full pl-12 pr-12 py-3 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400"
                       required
                     />
                     <button 
                       type="button"
                       onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
-                      className="absolute right-4 text-slate-400 hover:text-slate-600"
+                      className="absolute right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                     >
                       {showRegConfirmPassword ? (
                         <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -733,12 +747,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </button>
 
                 {/* Back to Login trigger */}
-                <div className="text-center text-xs font-semibold text-slate-500 pt-3 border-t border-slate-100 mt-4">
+                <div className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-900 mt-4">
                   Já tem uma conta?{' '}
                   <button 
                     type="button"
                     onClick={() => setView('login')}
-                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline ml-1"
+                    className="text-xs font-bold text-[#3b66f5] hover:text-[#2b54e3] hover:underline ml-1 cursor-pointer"
                   >
                     Fazer login
                   </button>
@@ -750,14 +764,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             {view === 'forgot' && (
               <form onSubmit={handleForgotSubmit} className="space-y-5">
                 {showForgotSuccess ? (
-                  <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100 text-center space-y-3">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-900/50 text-center space-y-3">
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
                       <svg className="w-6 h-6 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800">Email enviado!</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Email enviado!</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                       Enviamos as instruções para <strong>{forgotEmail}</strong>.
                     </p>
                     <button 
@@ -767,7 +781,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         setShowForgotSuccess(false);
                         setForgotEmail('');
                       }}
-                      className="mt-2 text-xs font-bold text-[#3b66f5] hover:underline"
+                      className="mt-2 text-xs font-bold text-[#3b66f5] hover:underline cursor-pointer"
                     >
                       Voltar ao login
                     </button>
@@ -776,8 +790,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   <>
                     {/* Email input */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 block">Email</label>
-                      <div className="relative flex items-center bg-white rounded-lg border border-slate-200 focus-within:border-[#3b66f5] transition-all">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Email</label>
+                      <div className="relative flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 focus-within:border-[#3b66f5] transition-all">
                         <div className="absolute left-4 text-slate-400">
                           <svg className="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <rect width="20" height="16" x="2" y="4" rx="2" />
@@ -789,7 +803,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
                           placeholder="seu@email.com"
-                          className="w-full pl-12 pr-4 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder-slate-400"
+                          className="w-full pl-12 pr-4 py-3.5 bg-transparent outline-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-550"
                           required
                         />
                       </div>
@@ -808,7 +822,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       <button 
                         type="button"
                         onClick={() => setView('login')}
-                        className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                        className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-750 transition-colors cursor-pointer"
                       >
                         <svg className="w-4 h-4 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>

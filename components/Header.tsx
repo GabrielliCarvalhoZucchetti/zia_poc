@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Sun, Moon } from 'lucide-react';
 import { User, UserRole, Resource, ResourceType } from '../types';
 import { Icons } from '../constants';
 
@@ -10,6 +11,8 @@ interface HeaderProps {
   activeResource: Resource | null;
   setActiveResource: (resource: Resource) => void;
   onLogout?: () => void;
+  isDarkMode?: boolean;
+  toggleDarkMode?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -18,7 +21,9 @@ const Header: React.FC<HeaderProps> = ({
   resources, 
   activeResource, 
   setActiveResource,
-  onLogout
+  onLogout,
+  isDarkMode = false,
+  toggleDarkMode
 }) => {
   const [showResourceMenu, setShowResourceMenu] = React.useState(false);
   const [showMarketMenu, setShowMarketMenu] = React.useState(false);
@@ -142,6 +147,15 @@ const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-6">
+        {toggleDarkMode && (
+          <button 
+            onClick={toggleDarkMode}
+            className="p-2 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-slate-50 transition-all border border-transparent flex items-center justify-center cursor-pointer"
+            title={isDarkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+          >
+            {isDarkMode ? <Sun className="w-5 h-5 text-amber-500 animate-pulse" /> : <Moon className="w-5 h-5 text-slate-400" />}
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="text-sm font-semibold text-slate-800">{user.name}</div>

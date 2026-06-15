@@ -234,7 +234,11 @@ const MOCK_RESOURCE_COSTS = [
   { name: 'Doc ClippPro', cost: 35, interactions: 8900 }
 ];
 
-const LunaMonitoringPage: React.FC = () => {
+interface LunaMonitoringPageProps {
+  isDarkMode?: boolean;
+}
+
+const LunaMonitoringPage: React.FC<LunaMonitoringPageProps> = ({ isDarkMode }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'costs' | 'keys'>('logs');
   const [period, setPeriod] = useState('Últimos 30 dias');
   const [showFilters, setShowFilters] = useState(false);
@@ -343,7 +347,110 @@ const LunaMonitoringPage: React.FC = () => {
   const allLogKeys = Array.from(new Set(MOCK_LOGS.map(l => l.apiKeyName)));
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50/50">
+    <div className={`flex-1 overflow-y-auto bg-slate-50/50 transition-colors duration-300 ${isDarkMode ? 'bg-[#030712] dark-monitoring dark' : ''}`}>
+      {isDarkMode && (
+        <style>{`
+          .dark-monitoring {
+            background-color: #030712 !important;
+            color: #f8fafc !important;
+          }
+          .dark-monitoring h1,
+          .dark-monitoring h2,
+          .dark-monitoring h3,
+          .dark-monitoring h4 {
+            color: #f1f5f9 !important;
+          }
+          .dark-monitoring p,
+          .dark-monitoring label {
+            color: #94a3b8 !important;
+          }
+          .dark-monitoring .bg-white {
+            background-color: #0d1222 !important;
+            border-color: #1e293b !important;
+          }
+          .dark-monitoring .border-slate-100,
+          .dark-monitoring .border-slate-200,
+          .dark-monitoring .border-slate-300,
+          .dark-monitoring .border-sky-100 {
+            border-color: #1e2a42 !important;
+          }
+          .dark-monitoring .text-slate-800,
+          .dark-monitoring .text-slate-700 {
+            color: #f1f5f9 !important;
+          }
+          .dark-monitoring .text-slate-600,
+          .dark-monitoring .text-slate-500 {
+            color: #94a3b8 !important;
+          }
+          .dark-monitoring .text-slate-400 {
+            color: #64748b !important;
+          }
+          .dark-monitoring input,
+          .dark-monitoring select {
+            background-color: #111827 !important;
+            color: #f9fafb !important;
+            border-color: #1a233b !important;
+          }
+          .dark-monitoring input::placeholder {
+            color: #4b5563 !important;
+          }
+          .dark-monitoring select option {
+            background-color: #111827 !important;
+            color: #f9fafb !important;
+          }
+          .dark-monitoring .bg-slate-50 {
+            background-color: #111827 !important;
+          }
+          .dark-monitoring .hover\\:bg-slate-50:hover,
+          .dark-monitoring tr:hover {
+            background-color: rgba(30, 41, 59, 0.4) !important;
+          }
+          .dark-monitoring .bg-sky-50 {
+            background-color: #0b1e36 !important;
+            color: #38bdf8 !important;
+          }
+          .dark-monitoring .text-\\[#0070E0\\] {
+            color: #3b82f6 !important;
+          }
+          .dark-monitoring table,
+          .dark-monitoring td,
+          .dark-monitoring th {
+            border-color: #1e293b !important;
+          }
+          .dark-monitoring th {
+            background-color: #090e1a !important;
+            color: #94a3b8 !important;
+          }
+          .dark-monitoring .divide-y > * + * {
+            border-color: #1e293b !important;
+          }
+          .dark-monitoring .hover\\:bg-white:hover {
+            background-color: #111827 !important;
+          }
+          .dark-monitoring .bg-emerald-50 {
+            background-color: rgba(6, 78, 59, 0.2) !important;
+            color: #34d399 !important;
+          }
+          .dark-monitoring .bg-red-50 {
+            background-color: rgba(127, 29, 29, 0.2) !important;
+            color: #f87171 !important;
+          }
+          .dark-monitoring .shadow-sm,
+          .dark-monitoring .shadow-xl {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5) !important;
+          }
+          .dark-monitoring .bg-sky-50\\/50 {
+            background-color: rgba(15, 23, 42, 0.6) !important;
+            border-color: #1e293b !important;
+          }
+          .dark-monitoring .text-sky-900 {
+            color: #38bdf8 !important;
+          }
+          .dark-monitoring .text-sky-700 {
+            color: #93c5fd !important;
+          }
+        `}</style>
+      )}
       <div className="p-8 max-w-[1850px] mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
