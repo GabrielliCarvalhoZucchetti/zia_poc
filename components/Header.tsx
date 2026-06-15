@@ -9,6 +9,7 @@ interface HeaderProps {
   resources: Resource[];
   activeResource: Resource | null;
   setActiveResource: (resource: Resource) => void;
+  onLogout?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -16,7 +17,8 @@ const Header: React.FC<HeaderProps> = ({
   onRoleChange, 
   resources, 
   activeResource, 
-  setActiveResource 
+  setActiveResource,
+  onLogout
 }) => {
   const [showResourceMenu, setShowResourceMenu] = React.useState(false);
   const [showMarketMenu, setShowMarketMenu] = React.useState(false);
@@ -145,7 +147,21 @@ const Header: React.FC<HeaderProps> = ({
             <div className="text-sm font-semibold text-slate-800">{user.name}</div>
             <div className="text-[10px] font-bold text-sky-600 uppercase">{roleLabels[user.role]}</div>
           </div>
-          <img src={user.avatar} alt="Usuário" className="w-10 h-10 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200" />
+          <img src={user.avatar} alt="Usuário" className="w-10 h-10 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200 animate-in zoom-in-75" />
+          
+          {onLogout && (
+            <button 
+              onClick={onLogout}
+              className="ml-2 p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50/50 transition-all border border-transparent hover:border-red-100 flex items-center justify-center cursor-pointer"
+              title="Sair do sistema"
+            >
+              <svg className="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" x2="9" y1="12" y2="12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </header>

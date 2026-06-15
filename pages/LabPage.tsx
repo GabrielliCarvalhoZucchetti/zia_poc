@@ -118,9 +118,10 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
             tag: '#assistente', 
             value: 15, 
             description: 'Entende perguntas e responde, mas não age sozinho',
-            bgColor: 'bg-[#F0F4FF]',
-            borderColor: 'border-blue-100',
-            textColor: 'text-slate-900'
+            bgColor: 'bg-[#0f172a]',
+            borderColor: 'border-slate-800',
+            textColor: 'text-white',
+            isDarkMode: true
           },
           { 
             tag: '#agente', 
@@ -133,11 +134,11 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
         ].map((kpi, i) => (
           <div key={i} className={`${kpi.bgColor} p-6 rounded-xl border ${kpi.borderColor} relative overflow-hidden group transition-all hover:shadow-md`}>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">{kpi.tag}</span>
-              <Icons.Paperclip className="w-3.5 h-3.5 text-slate-400 rotate-45" />
+              <span className={`text-[11px] font-bold uppercase tracking-tight ${'isDarkMode' in kpi && kpi.isDarkMode ? 'text-sky-400' : 'text-slate-800'}`}>{kpi.tag}</span>
+              <Icons.Paperclip className={`w-3.5 h-3.5 rotate-45 ${'isDarkMode' in kpi && kpi.isDarkMode ? 'text-sky-500' : 'text-slate-400'}`} />
             </div>
-            <div className="text-4xl font-extrabold text-slate-900 mb-2">{kpi.value}</div>
-            <div className="text-[11px] text-slate-500 leading-relaxed font-medium">
+            <div className={`text-4xl font-extrabold mb-2 ${'isDarkMode' in kpi && kpi.isDarkMode ? 'text-white' : 'text-slate-900'}`}>{kpi.value}</div>
+            <div className={`text-[11px] leading-relaxed font-medium ${'isDarkMode' in kpi && kpi.isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               {kpi.description}
             </div>
           </div>
@@ -386,26 +387,26 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
             {/* Content */}
             <div className="p-6 overflow-y-auto bg-slate-50/30 flex-1">
               {activeTab === 'Resumo' && (
-                <div className="bg-[#F0F4FF]/50 border border-blue-100 rounded-2xl p-6 space-y-6">
+                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 space-y-6 shadow-md">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-blue-600 uppercase tracking-tight">Título</label>
-                    <p className="text-sm text-slate-800 font-medium">{selectedProject.title}</p>
+                    <label className="text-[11px] font-bold text-sky-400 uppercase tracking-tight">Título</label>
+                    <p className="text-sm text-slate-100 font-medium">{selectedProject.title}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-blue-600 uppercase tracking-tight">Descrição</label>
-                    <p className="text-sm text-slate-600 leading-relaxed">
+                    <label className="text-[11px] font-bold text-sky-400 uppercase tracking-tight">Descrição</label>
+                    <p className="text-sm text-slate-300 leading-relaxed">
                       {selectedProject.description}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-blue-600 uppercase tracking-tight">Tipo do projeto</label>
+                    <label className="text-[11px] font-bold text-sky-400 uppercase tracking-tight">Tipo do projeto</label>
                     <div className="relative">
                       <select 
                         value={selectedProject.type || 'Não definido'}
                         disabled
-                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 appearance-none focus:outline-none disabled:opacity-85"
                       >
                         <option value="Não definido">Não definido</option>
                         <option value="Automação">Automação</option>
@@ -419,28 +420,28 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-blue-600 uppercase tracking-tight">Status</label>
+                    <label className="text-[11px] font-bold text-sky-400 uppercase tracking-tight">Status</label>
                     <div>
-                      <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-3 py-1 rounded-full border border-blue-100">
+                      <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold px-3 py-1 rounded-full border border-sky-500/25">
                         {columns.find(c => c.id === selectedProject.status)?.label || selectedProject.status}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-blue-600 uppercase tracking-tight">Fonte de dados</label>
-                    <p className="text-sm text-slate-400 italic">Não informado</p>
+                    <label className="text-[11px] font-bold text-sky-400 uppercase tracking-tight">Fonte de dados</label>
+                    <p className="text-sm text-slate-450 italic">Não informado</p>
                   </div>
 
-                  <div className="pt-4 border-t border-blue-100 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <div className="pt-4 border-t border-slate-800 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sky-450">
                       <Icons.User className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-[10px] font-bold text-blue-600 uppercase">Criado por</div>
-                      <div className="text-sm text-slate-800 font-medium">{selectedProject.user}</div>
+                      <div className="text-[10px] font-bold text-sky-400 uppercase">Criado por</div>
+                      <div className="text-sm text-slate-200 font-medium">{selectedProject.user}</div>
                       {selectedProject.email && (
-                        <div className="text-[10px] text-slate-500">{selectedProject.email}</div>
+                        <div className="text-[10px] text-slate-400">{selectedProject.email}</div>
                       )}
                     </div>
                   </div>
@@ -450,16 +451,16 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
                 <div className="space-y-6">
                   <div className="space-y-4">
                     {selectedProject.comments?.map(comment => (
-                      <div key={comment.id} className="bg-[#F0F4FF]/30 border border-blue-100 rounded-xl overflow-hidden shadow-sm">
-                        <div className="bg-blue-50/50 px-4 py-2 border-b border-blue-100 flex items-center justify-between">
-                          <span className="text-xs font-bold text-blue-600">{comment.user}</span>
+                      <div key={comment.id} className="bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                        <div className="bg-slate-800/80 px-4 py-2 border-b border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-bold text-sky-450">{comment.user}</span>
                           <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                            <Icons.History className="w-3 h-3" />
+                            <Icons.History className="w-3 h-3 text-sky-450" />
                             {new Date(comment.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                           </span>
                         </div>
                         <div className="p-4">
-                          <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
                             {comment.content}
                           </p>
                         </div>
@@ -545,33 +546,33 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
               {activeTab === 'Métricas' && (
                 <div className="space-y-6">
                   {/* North Star Metric (NSM) Card */}
-                  <div className="bg-[#F0F4FF]/50 border border-blue-100 rounded-2xl p-6 space-y-4">
-                    <h4 className="text-sm font-bold text-blue-600">North Star Metric (NSM)</h4>
+                  <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 space-y-4">
+                    <h4 className="text-sm font-bold text-sky-400">North Star Metric (NSM)</h4>
                     
-                    <div className="bg-white border border-blue-50 rounded-xl p-4 shadow-sm">
-                      <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Métrica de Sucesso</div>
-                      <p className="text-sm text-slate-700 font-medium">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                      <div className="text-[10px] font-bold text-sky-450 uppercase mb-1">Métrica de Sucesso</div>
+                      <p className="text-sm text-slate-200 font-medium">
                         {selectedProject.metrics || "100% das notícias do setor econômico das BUs monitoradas pela Zucchetti"}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white border border-blue-50 rounded-xl p-4 shadow-sm">
-                        <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Meta</div>
-                        <p className="text-sm text-slate-500 italic">Não definida</p>
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                        <div className="text-[10px] font-bold text-sky-450 uppercase mb-1">Meta</div>
+                        <p className="text-sm text-slate-400 italic">Não definida</p>
                       </div>
-                      <div className="bg-white border border-blue-50 rounded-xl p-4 shadow-sm">
-                        <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Atingido</div>
-                        <p className="text-sm text-slate-500 italic">Não medido</p>
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                        <div className="text-[10px] font-bold text-sky-450 uppercase mb-1">Atingido</div>
+                        <p className="text-sm text-slate-400 italic">Não medido</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Evolução da NSM Card */}
-                  <div className="bg-[#F0F4FF]/50 border border-blue-100 rounded-2xl p-6 space-y-4">
+                  <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 space-y-4">
                     <div>
-                      <h4 className="text-sm font-bold text-blue-600">Evolução da NSM</h4>
-                      <p className="text-[10px] text-slate-500">Acompanhamento semanal da meta vs atingido</p>
+                      <h4 className="text-sm font-bold text-sky-400">Evolução da NSM</h4>
+                      <p className="text-[10px] text-slate-400">Acompanhamento semanal da meta vs atingido</p>
                     </div>
 
                     <div className="h-[300px] w-full bg-white/50 rounded-xl p-4">
@@ -641,19 +642,19 @@ const LabPage: React.FC<LabPageProps> = ({ user, projects, onCreateProject, onAd
               {activeTab === 'Anexos' && (
                 <div className="space-y-8">
                   {/* Upload Area */}
-                  <div className="border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl p-10 flex flex-col items-center justify-center text-center group hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 text-blue-600 group-hover:scale-110 transition-transform">
+                  <div className="border-2 border-dashed border-slate-800 bg-[#0f172a] rounded-2xl p-10 flex flex-col items-center justify-center text-center group hover:border-sky-500 hover:bg-[#0f172a]/90 transition-all cursor-pointer">
+                    <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center shadow-sm mb-4 text-sky-400 group-hover:scale-110 transition-transform">
                       <Icons.Upload />
                     </div>
-                    <p className="text-sm font-medium text-slate-600">
-                      <span className="text-blue-600 font-bold">Clique para fazer upload</span> ou arraste arquivos aqui
+                    <p className="text-sm font-medium text-slate-300">
+                      <span className="text-sky-400 font-bold">Clique para fazer upload</span> ou arraste arquivos aqui
                     </p>
                     <p className="text-[10px] text-slate-400 mt-2">Os anexos serão enviados ao Jira</p>
                   </div>
 
                   {/* Existing Attachments Section */}
                   <div className="space-y-4">
-                    <h4 className="text-sm font-bold text-blue-600">Anexos existentes</h4>
+                    <h4 className="text-sm font-bold text-sky-400 font-sans tracking-tight">Anexos existentes</h4>
                     
                     <div className="space-y-3">
                       {selectedProject.attachments && selectedProject.attachments.length > 0 ? (

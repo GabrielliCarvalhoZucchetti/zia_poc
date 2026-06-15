@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icons } from '../constants';
+import { LevelUpAnimation } from '../components/LevelUpAnimation';
 
 const RANKING_AI_USERS = [
   { rank: '1º', name: 'Alice Castro', count: 154, type: 'INTERAÇÕES', avatar: 'https://picsum.photos/seed/alice/100/100' },
@@ -37,6 +38,10 @@ const HomePage: React.FC = () => {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedNews, setSelectedNews] = useState<{ title: string; date: string; content: string; tag: string } | null>(null);
+  const [levelUpState, setLevelUpState] = useState<{ active: boolean; level: string }>({
+    active: false,
+    level: 'AI Builder'
+  });
 
   useEffect(() => {
     const completed = localStorage.getItem('luna_onboarding_completed');
@@ -107,11 +112,39 @@ const HomePage: React.FC = () => {
                 <Icons.Check className="w-3" />
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 flex-1">
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">Joao Silva</h2>
-              <span className="inline-block px-3 py-1 bg-sky-50 text-sky-600 font-extrabold text-[10px] uppercase rounded-full tracking-wider border border-sky-100">
-                AI STARTER
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-block px-3 py-1 bg-sky-50 text-sky-600 font-extrabold text-[10px] uppercase rounded-full tracking-wider border border-sky-100">
+                  AI STARTER
+                </span>
+                
+                {/* Level Up Simulator buttons */}
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase">Simular Upgrade:</span>
+                  <button
+                    type="button"
+                    onClick={() => setLevelUpState({ active: true, level: "AI User" })}
+                    className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded border border-slate-200 cursor-pointer active:scale-95 transition-all"
+                  >
+                    AI User ⚡
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLevelUpState({ active: true, level: "AI Builder" })}
+                    className="px-2 py-0.5 text-[9px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 rounded border border-amber-500/20 cursor-pointer active:scale-95 transition-all"
+                  >
+                    AI Builder 🚀
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLevelUpState({ active: true, level: "AI Champion" })}
+                    className="px-2 py-0.5 text-[9px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 rounded border border-purple-500/20 cursor-pointer active:scale-95 transition-all"
+                  >
+                    AI Champion 👑
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -978,6 +1011,12 @@ const HomePage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {levelUpState.active && (
+        <LevelUpAnimation
+          newLevel={levelUpState.level}
+          onComplete={() => setLevelUpState(prev => ({ ...prev, active: false }))}
+        />
       )}
     </div>
   );

@@ -17,6 +17,7 @@ import WhatsAppMonitorPage from './pages/WhatsAppMonitorPage';
 import ItauLeadUploadPage from './pages/ItauLeadUploadPage';
 import ZnoteLayout from './pages/znote/ZnoteLayout';
 import CreateResourcePage from './pages/CreateResourcePage';
+import { LoginPage } from './pages/LoginPage';
 
 const INITIAL_PROJECTS: Project[] = [
   { 
@@ -151,13 +152,40 @@ const INITIAL_REQUESTS: AccessRequest[] = [
 ];
 
 const AppInner: React.FC = () => {
-  const [user, setUser] = useState<User>({
-    id: 'u1',
-    name: 'Gabrielli Carvalho',
-    role: UserRole.ADMINISTRATOR,
-    avatar: 'https://picsum.photos/seed/luna-user/100/100',
-    bu: 'Desenvolvimento'
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('luna_auth') === 'true';
   });
+
+  const [user, setUser] = useState<User>(() => {
+    const cached = localStorage.getItem('luna_user');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // Fallback below
+      }
+    }
+    return {
+      id: 'u1',
+      name: 'Gabrielli Carvalho',
+      role: UserRole.ADMINISTRATOR,
+      avatar: 'https://picsum.photos/seed/luna-user/100/100',
+      bu: 'Desenvolvimento'
+    };
+  });
+
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('luna_auth', 'true');
+    localStorage.setItem('luna_user', JSON.stringify(loggedInUser));
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('luna_auth');
+    localStorage.removeItem('luna_user');
+  };
 
   const [resources, setResources] = useState<Resource[]>(INITIAL_RESOURCES);
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
@@ -462,6 +490,10 @@ const AppInner: React.FC = () => {
     }
   }, [visibleResources, activeResource]);
 
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-white">
       <Sidebar userRole={user.role} />
@@ -473,6 +505,7 @@ const AppInner: React.FC = () => {
             resources={visibleResources}
             activeResource={activeResource}
             setActiveResource={setActiveResource}
+            onLogout={handleLogout}
           />
           
           {/* Removido o overflow-y-auto global para permitir que o Chat controle seu próprio scroll de 100% de altura */}
