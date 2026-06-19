@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User, Project } from '../types';
+import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User, Project, Tool, ToolType, ToolParameter } from '../types';
 import { Icons } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
 import { motion } from 'motion/react';
+import { ToolWizardModal } from '../components/ToolWizardModal';
+import { LinkToolModal } from '../components/LinkToolModal';
 
 interface TextBlock {
   type: 'title' | 'subtitle' | 'paragraph' | 'highlight' | 'list';
@@ -114,7 +116,9 @@ interface CreateResourcePageProps {
   user: User;
   resources: Resource[];
   projects: Project[];
-  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'> & { environment?: ResourceEnvironment }) => void;
+  tools?: Tool[];
+  onSaveTool?: (tool: Tool) => void;
+  onCreateResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'environment' | 'creatorId' | 'version' | 'updatedAt' | 'history'> & { environment?: ResourceEnvironment; tools?: string[] }) => void;
   onUpdateResource: (resource: Resource) => void;
   onDeleteResource: (id: string) => void;
   onCreateRequest: (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação' | 'Promoção', reason?: string) => void;
@@ -124,6 +128,8 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   user,
   resources,
   projects,
+  tools = [],
+  onSaveTool = (tool: Tool) => {},
   onCreateResource,
   onUpdateResource,
   onDeleteResource,
@@ -170,6 +176,13 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [isArquiteturaExpanded, setIsArquiteturaExpanded] = useState(isEditing);
   const [isVetorizacaoExpanded, setIsVetorizacaoExpanded] = useState(isEditing);
   const [isSkillExpanded, setIsSkillExpanded] = useState(isEditing);
+
+  // Tools states
+  const [linkedToolIds, setLinkedToolIds] = useState<string[]>([]);
+  const [isToolsExpanded, setIsToolsExpanded] = useState(isEditing);
+  const [isAddingToolModalOpen, setIsAddingToolModalOpen] = useState(false);
+  const [isLinkingToolModalOpen, setIsLinkingToolModalOpen] = useState(false);
+  const [editingToolForWizard, setEditingToolForWizard] = useState<Tool | null>(null);
 
   // Skill File State
   const [skillFile, setSkillFile] = useState<{ name: string; size: string; type: string; content?: string } | null>(null);
@@ -403,6 +416,7 @@ Aqui está o texto do usuário:
       setWebhookHeaders(editingResource.webhookHeaders || '');
       setWebhookBody(editingResource.webhookBody || '');
       setLinkedDocs(editingResource.linkedDocs || []);
+      setLinkedToolIds(editingResource.tools || []);
       setResourceEnvironment(editingResource.environment || ResourceEnvironment.STAGING);
 
       if (editingResource.type === ResourceType.AUTOMATION) {
@@ -524,6 +538,7 @@ Aqui está o texto do usuário:
         webhookHeaders,
         webhookBody,
         linkedDocs,
+        tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment
       });
     } else {
@@ -540,6 +555,7 @@ Aqui está o texto do usuário:
         webhookHeaders,
         webhookBody,
         linkedDocs,
+        tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment
       });
     }
@@ -1684,6 +1700,129 @@ REQUISITOS OPERACIONAIS:
                   </div>
                 )}
 
+              {/* ACCORDION 3: Configuração de Tools (Ações e Conectores) */}
+              {[ResourceType.AGENT, ResourceType.ASSISTANT].includes(createType) && (
+                <div className="col-span-full border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all mt-6 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => setIsToolsExpanded(!isToolsExpanded)}
+                    className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-sky-600 shadow-sm shrink-0">
+                        <Icons.Workflow className="w-5 h-5 text-sky-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">Definições de Tools (Ações do Agente)</h3>
+                        <p className="text-[11px] text-slate-500 font-medium">Cadastre e vincule APIs HTTP ou fluxos MCP para controle operacional do Agente</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {linkedToolIds.length > 0 && (
+                        <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
+                          {linkedToolIds.length} {linkedToolIds.length === 1 ? 'tool vinculada' : 'tools vinculadas'}
+                        </span>
+                      )}
+                      <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isToolsExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {isToolsExpanded && (
+                    <div className="p-6 border-t border-slate-100 space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-slate-400 font-semibold">Atribua capacidades e conectores para que o modelo de IA consiga realizar operações.</p>
+                        </div>
+                        <div className="flex gap-2.5 shrink-0 self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => setIsLinkingToolModalOpen(true)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-850 hover:bg-slate-100 transition-all bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200"
+                          >
+                            <Icons.Link className="w-3.5 h-3.5" />
+                            <span>Vincular existente</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingToolForWizard(null);
+                              setIsAddingToolModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700 transition-all bg-sky-50 px-4 py-2.5 rounded-xl border border-sky-100"
+                          >
+                            <Icons.Plus className="w-3.5 h-3.5" />
+                            <span>Cadastrar nova tool</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(() => {
+                          const linkedTools = tools.filter(t => linkedToolIds.includes(t.id));
+                          if (linkedTools.length === 0) {
+                            return (
+                              <div className="col-span-full p-10 rounded-[24px] border-2 border-dashed border-slate-100 text-center bg-slate-50/25">
+                                <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-350 mx-auto mb-3 shadow-sm">
+                                  <Icons.Workflow className="w-5 h-5 text-slate-400" />
+                                </div>
+                                <div className="text-xs font-bold text-slate-650">Nenhuma tool vinculada ao agente</div>
+                                <div className="text-[11px] text-slate-400 mt-1">Conecte endpoints de REST APIs (HTTP) ou servidores MCP para habilitar ações.</div>
+                              </div>
+                            );
+                          }
+
+                          return linkedTools.map(tool => (
+                            <div key={tool.id} className="group flex flex-col justify-between p-5 rounded-[22px] border border-slate-150 bg-white hover:border-slate-250 transition-all">
+                              <div className="space-y-2.5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-extrabold text-xs text-slate-800 truncate" title={tool.name}>{tool.name}</span>
+                                  <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md ${tool.type === ToolType.HTTP ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                    {tool.type === ToolType.HTTP ? 'HTTP Request' : 'Servidor MCP'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">{tool.description}</p>
+                                
+                                {tool.parameters?.length > 0 && (
+                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                    {tool.parameters.map((p, pIdx) => (
+                                      <span key={pIdx} className="text-[9px] bg-slate-50 border border-slate-200/60 text-slate-500 font-mono px-1.5 py-0.5 rounded-md">
+                                        {p.name}:{p.type}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingToolForWizard(tool);
+                                    setIsAddingToolModalOpen(true);
+                                  }}
+                                  className="text-[11px] font-bold text-sky-600 hover:text-sky-700 transition-all flex items-center gap-1"
+                                >
+                                  <Icons.Settings className="w-3.5 h-3.5" />
+                                  <span>Editar Definição</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkedToolIds(prev => prev.filter(id => id !== tool.id))}
+                                  className="text-[11px] font-bold text-rose-600 hover:text-rose-700 transition-all flex items-center gap-1"
+                                >
+                                  <Icons.X className="w-3.5 h-3.5" />
+                                  <span>Desvincular</span>
+                                </button>
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Seção 2: Vetorização (Se Documentação) */}
               {createType === ResourceType.DOCUMENTATION && (
                 <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
@@ -1958,6 +2097,38 @@ REQUISITOS OPERACIONAIS:
           </motion.div>
         </div>
       )}
+
+      {/* Tool Integration Modals */}
+      <ToolWizardModal
+        isOpen={isAddingToolModalOpen}
+        onClose={() => {
+          setIsAddingToolModalOpen(false);
+          setEditingToolForWizard(null);
+        }}
+        onSave={(newTool: Tool) => {
+          onSaveTool(newTool);
+          if (!linkedToolIds.includes(newTool.id)) {
+            setLinkedToolIds(prev => [...prev, newTool.id]);
+          }
+        }}
+        existingTool={editingToolForWizard}
+        siblingTools={tools.filter(t => linkedToolIds.includes(t.id))}
+      />
+
+      <LinkToolModal
+        isOpen={isLinkingToolModalOpen}
+        onClose={() => setIsLinkingToolModalOpen(false)}
+        allTools={tools}
+        linkedToolIds={linkedToolIds}
+        onLink={(toolId) => {
+          if (!linkedToolIds.includes(toolId)) {
+            setLinkedToolIds(prev => [...prev, toolId]);
+          }
+        }}
+        onUnlink={(toolId) => {
+          setLinkedToolIds(prev => prev.filter(id => id !== toolId));
+        }}
+      />
     </div>
   );
 };

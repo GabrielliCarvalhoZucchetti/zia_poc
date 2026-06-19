@@ -24,7 +24,7 @@ async function startServer() {
       }
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.5-flash',
         contents: [
           ...(history || []).map((h: any) => ({
             role: h.role === 'user' ? 'user' : 'model',
@@ -39,7 +39,7 @@ async function startServer() {
       });
       res.json({ text: response.text || "" });
     } catch (error: any) {
-      console.error("Gemini server-side API error:", error);
+      console.warn("Gemini server-side API warning/handled:", error.message || error);
       res.status(500).json({ error: error.message || "Error calling Gemini API" });
     }
   });

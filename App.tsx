@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask, ResourceVersion } from './types';
+import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask, ResourceVersion, Tool, ToolType } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
@@ -18,6 +18,40 @@ import ItauLeadUploadPage from './pages/ItauLeadUploadPage';
 import ZnoteLayout from './pages/znote/ZnoteLayout';
 import CreateResourcePage from './pages/CreateResourcePage';
 import { LoginPage } from './pages/LoginPage';
+
+const INITIAL_TOOLS: Tool[] = [
+  {
+    id: 't1',
+    name: 'fetchCustomerCRM',
+    type: ToolType.HTTP,
+    description: 'Recupera dados cadastrais do cliente via API de CRM da Zucchetti usando o ID do cliente',
+    status: 'active',
+    parameters: [
+      { name: 'id', type: 'string', required: true, description: 'ID único do cliente no CRM' }
+    ],
+    url: 'https://api.zucchetti.cloud/crm/v1/customers/:id',
+    method: 'GET',
+    parameterMapping: [
+      { paramName: 'id', location: 'path' }
+    ],
+    bodyFormat: 'JSON'
+  },
+  {
+    id: 't2',
+    name: 'notifySlackChannel',
+    type: ToolType.MCP,
+    description: 'Envia mensagens formatadas para canais específicos do Slack via servidor MCP corporativo',
+    status: 'active',
+    parameters: [
+      { name: 'channel', type: 'string', required: true, description: 'Canal de destino (ex: #leads)' },
+      { name: 'message', type: 'string', required: true, description: 'Conteúdo em markdown customizado' }
+    ],
+    serverUrl: 'http://mcp.zucchetti.internal:9000/slack',
+    transportProtocol: 'SSE',
+    discoveredTools: ['notifySlackChannel', 'listChannels', 'registerUser'],
+    selectedDiscoveredTool: 'notifySlackChannel'
+  }
+];
 
 const INITIAL_PROJECTS: Project[] = [
   { 
@@ -43,6 +77,24 @@ const INITIAL_PROJECTS: Project[] = [
 ];
 
 const INITIAL_RESOURCES: Resource[] = [
+  { 
+    id: 'luna-secretario', 
+    name: 'Luna, o secretário', 
+    description: 'Seu secretário executivo inteligente. Ele armazena as transcrições das suas gravações corporativas no seu RAG (Base de Conhecimento) e ajuda você a resumir reuniões, criar atas, extrair tarefas acionáveis e responder a dúvidas sobre tudo o que foi gravado.', 
+    type: ResourceType.ASSISTANT, 
+    agentType: AgentType.READING, 
+    requiredRole: UserRole.BASIC, 
+    createdAt: '2026-06-19', 
+    environment: ResourceEnvironment.PRODUCTION, 
+    creatorId: 'system', 
+    creatorName: 'Gabrielli Carvalho', 
+    creatorEmail: 'gabrielli.carvalho@zucchetti.com.br',
+    creatorArea: 'IA & Inovação',
+    version: 1, 
+    updatedAt: '2026-06-19', 
+    prompt: 'Você é "Luna, o secretário", um assistente atencioso e inteligente da organização Zucchetti. Toda vez que o usuário salvar uma gravação de reunião ou notas de voz, o conteúdo transcrito é anexado diretamente à sua base de dados (RAG) o que permite que você responda com precisão extrema a perguntas detalhadas sobre as discussões, atas, tarefas e pessoas mencionadas nessas gravações. Quando o usuário fizer perguntas, consulte as notas de voz gravadas abaixo e retire as respostas diretamente delas se estiverem disponíveis. Responda detalhadamente e de forma prestativa, sempre em português.',
+    history: []
+  },
   { 
     id: 'r1', 
     name: 'Assistente Geral', 
@@ -213,6 +265,49 @@ const AppInner: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(INITIAL_REQUESTS);
   const [systemWebhookUrl, setSystemWebhookUrl] = useState<string>('');
+
+  const [tools, setTools] = useState<Tool[]>(() => {
+    const cached = localStorage.getItem('luna_tools');
+    return cached ? JSON.parse(cached) : INITIAL_TOOLS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('luna_tools', JSON.stringify(tools));
+  }, [tools]);
+
+  const [savedTranscripts, setSavedTranscripts] = useState<{ id: string; title: string; content: string; timestamp: string; duration: string }[]>(() => {
+    const cached = localStorage.getItem('luna_transcripts');
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('luna_transcripts', JSON.stringify(savedTranscripts));
+    
+    setResources(prev => prev.map(res => {
+      if (res.id === 'luna-secretario') {
+        const basePrompt = 'Você é "Luna, o secretário", um assistente atencioso e inteligente da organização Zucchetti. Toda vez que o usuário salvar uma gravação de reunião ou notas de voz, o conteúdo transcrito é anexado diretamente à sua base de dados (RAG) o que permite que você responda com precisão extrema a perguntas detalhadas sobre as discussões, atas, tarefas e pessoas mencionadas nessas gravações. Quando o usuário fizer perguntas, consulte as notas de voz gravadas abaixo e retire as respostas diretamente delas se estiverem disponíveis. Responda detalhadamente e de forma prestativa, sempre em português.';
+        
+        const ragContext = savedTranscripts.map(t => `\n\n--- GRAVAÇÃO SALVA NO RAG: ${t.title} (Data/Hora: ${t.timestamp}) ---\n${t.content}`).join('');
+        
+        return {
+          ...res,
+          prompt: basePrompt + (ragContext ? `\n\n--- BASE DE CONHECIMENTO RETRIEVED (RAG) ---\nUse estas informações abaixo para responder a qualquer pergunta do usuário:\n${ragContext}` : '\n\n(Nenhuma gravação foi salva no RAG até o momento. Incentive o usuário a usar o botão de gravação no cabeçalho para gerar e salvar as discussões corporativas)')
+        };
+      }
+      return res;
+    }));
+  }, [savedTranscripts]);
+
+  const handleSaveTranscript = (title: string, content: string, duration: string) => {
+    const newTranscript = {
+      id: `tr-${Date.now()}`,
+      title,
+      content,
+      timestamp: new Date().toLocaleString(),
+      duration
+    };
+    setSavedTranscripts(prev => [newTranscript, ...prev]);
+  };
 
   const handleRoleChange = (role: UserRole) => {
     setUser(prev => ({ ...prev, role }));
@@ -528,6 +623,8 @@ const AppInner: React.FC = () => {
             onLogout={handleLogout}
             isDarkMode={isDarkMode}
             toggleDarkMode={toggleDarkMode}
+            onSaveTranscript={handleSaveTranscript}
+            savedTranscripts={savedTranscripts}
           />
           
           {/* Removido o overflow-y-auto global para permitir que o Chat controle seu próprio scroll de 100% de altura */}
@@ -543,6 +640,8 @@ const AppInner: React.FC = () => {
                   onAddMessage={handleAddMessage}
                   onNewConversation={handleNewConversation}
                   onCreateRequest={handleCreateRequest}
+                  resources={visibleResources}
+                  setActiveResource={setActiveResource}
                 />
               } />
               <Route path="/resources" element={
@@ -564,6 +663,19 @@ const AppInner: React.FC = () => {
                   user={user}
                   resources={resources}
                   projects={projects}
+                  tools={tools}
+                  onSaveTool={(t: Tool) => {
+                    setTools(prev => {
+                      const idx = prev.findIndex(item => item.id === t.id);
+                      if (idx > -1) {
+                        const copy = [...prev];
+                        copy[idx] = t;
+                        return copy;
+                      } else {
+                        return [...prev, t];
+                      }
+                    });
+                  }}
                   onCreateResource={handleCreateResource}
                   onUpdateResource={handleUpdateResource}
                   onDeleteResource={handleDeleteResource}
@@ -575,6 +687,19 @@ const AppInner: React.FC = () => {
                   user={user}
                   resources={resources}
                   projects={projects}
+                  tools={tools}
+                  onSaveTool={(t: Tool) => {
+                    setTools(prev => {
+                      const idx = prev.findIndex(item => item.id === t.id);
+                      if (idx > -1) {
+                        const copy = [...prev];
+                        copy[idx] = t;
+                        return copy;
+                      } else {
+                        return [...prev, t];
+                      }
+                    });
+                  }}
                   onCreateResource={handleCreateResource}
                   onUpdateResource={handleUpdateResource}
                   onDeleteResource={handleDeleteResource}

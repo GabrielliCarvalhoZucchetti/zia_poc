@@ -27,6 +27,42 @@ export enum ResourceEnvironment {
   PRODUCTION = 'PRODUCTION'
 }
 
+export enum ToolType {
+  HTTP = 'HTTP',
+  MCP = 'MCP'
+}
+
+export interface ToolParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  required: boolean;
+  description: string;
+}
+
+export interface Tool {
+  id: string;
+  name: string;
+  type: ToolType;
+  description: string;
+  status: 'active' | 'inactive';
+  parameters: ToolParameter[];
+  
+  // HTTP specific
+  url?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: { key: string; value: string }[];
+  parameterMapping?: { paramName: string; location: 'query' | 'path' | 'body' | 'header' }[];
+  bodyFormat?: 'JSON' | 'form-data';
+  responseMapping?: string;
+
+  // MCP specific
+  serverUrl?: string;
+  transportProtocol?: 'SSE' | 'stdio' | 'HTTP';
+  authCredentials?: string;
+  discoveredTools?: string[];
+  selectedDiscoveredTool?: string;
+}
+
 export interface ResourceVersion {
   version: number;
   name: string;
@@ -38,6 +74,7 @@ export interface ResourceVersion {
   model?: string;
   updatedAt: string;
   updatedBy: string;
+  tools?: string[];
 }
 
 export interface Resource {
@@ -51,6 +88,7 @@ export interface Resource {
   prompt?: string;
   model?: string;
   linkedDocs?: string[]; // IDs of documentation resources
+  tools?: string[]; // IDs of linked tools
   environment: ResourceEnvironment;
   creatorId: string;
   creatorName?: string;

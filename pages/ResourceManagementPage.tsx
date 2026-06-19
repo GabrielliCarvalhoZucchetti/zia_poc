@@ -97,6 +97,18 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
   const filteredResources = activeTab === 'mine' ? myResources : otherResources;
   const [showHistoryModal, setShowHistoryModal] = useState<Resource | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [showRagModal, setShowRagModal] = useState(false);
+  const [transcriptsList, setTranscriptsList] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    try {
+      setTranscriptsList(JSON.parse(localStorage.getItem('luna_transcripts') || '[]'));
+    } catch (e) {
+      setTranscriptsList([]);
+    }
+  }, [showRagModal]);
+
+  const transcriptsCount = transcriptsList.length;
 
   React.useEffect(() => {
     const handleClose = () => setActiveDropdown(null);
@@ -223,6 +235,21 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
               <tr key={res.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="text-sm font-bold text-slate-800">{res.name}</div>
+                  {res.id === 'luna-secretario' && (
+                    <div className="mt-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRagModal(true);
+                        }}
+                        className="text-[10px] font-extrabold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-100 px-2.5 py-1 rounded-full inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Ver documentos salvos no RAG"
+                      >
+                        <span className="text-[10px]">📚</span>
+                        <span>{transcriptsCount} Gravações no RAG</span>
+                      </button>
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   {(() => {
@@ -439,6 +466,90 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button onClick={() => setShowHistoryModal(null)} className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL LUNA RAG REGISTROS --- */}
+      {showRagModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-left">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs animate-fade-in" onClick={() => setShowRagModal(false)}></div>
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span>📚</span>
+                <span>Base de Conhecimento (RAG): Luna, o secretário</span>
+              </h2>
+              <button onClick={() => setShowRagModal(false)} className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 hover:bg-slate-200/50 rounded-full cursor-pointer focus:outline-none">
+                <Icons.X />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-5">
+              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl text-xs text-sky-850 flex items-start gap-2.5 leading-relaxed">
+                <span className="text-base">💁‍♂️</span>
+                <div>
+                  <p className="font-bold mb-0.5">Como funciona a busca sintética do assistente?</p>
+                  <p className="text-sky-750">Sempre que você conversa com o <strong>Luna, o secretário</strong> (seja no Playground ou nos canais de chat), seu mecanismo RAG lê os arquivos abaixo e fundamenta as respostas exclusivamente no conteúdo de reuniões e atas gravadas.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Gravações Salvas ({transcriptsList.length})</h3>
+                {transcriptsList.length === 0 ? (
+                  <div className="text-center py-12 border border-slate-150 border-dashed rounded-xl bg-slate-50/50">
+                    <p className="text-xs text-slate-400 italic">Nenhuma gravação armazenada no RAG do Luna.</p>
+                    <p className="text-[10px] text-sky-600 font-bold mt-1.5">Use o botão "Gravar Reunião" do cabeçalho para gerar conteúdo!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {transcriptsList.map((t, idx) => (
+                      <div key={t.id || idx} className="bg-white border border-slate-200 p-4 rounded-xl hover:shadow-xs transition-all">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-800">{t.title}</h4>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium">
+                              <span>📅 {t.timestamp}</span>
+                              <span>•</span>
+                              <span>⏱️ Duração: {t.duration}</span>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Tem certeza que deseja remover esta gravação do RAG do Luna? Isso excluirá permanentemente.`)) {
+                                const updated = transcriptsList.filter((_, i) => i !== idx);
+                                localStorage.setItem('luna_transcripts', JSON.stringify(updated));
+                                setTranscriptsList(updated);
+                                alert("Documento excluído com sucesso do RAG do Luna!");
+                                // Trigger a reload by reloading the window or setting state
+                                window.location.reload();
+                              }
+                            }}
+                            className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-150/30 px-2.5 py-1 rounded-lg cursor-pointer transition-all shrink-0"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                        
+                        <div className="text-xs text-slate-650 bg-slate-50 p-3 rounded-lg border border-slate-150/50 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed">
+                          {t.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button 
+                onClick={() => setShowRagModal(false)} 
+                className="px-5 py-2 hover:bg-slate-150/40 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition-all cursor-pointer"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
