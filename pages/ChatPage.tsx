@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Resource, Message, Conversation, UserRole, AgentType, Attachment, ResourceType, ResourceEnvironment } from '../types';
+import { User, Resource, Message, Conversation, UserRole, AgentType, Attachment, ResourceType, ResourceEnvironment, Tool, ToolType } from '../types';
 import { Icons, canUserAccessResource } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
 
@@ -47,6 +47,48 @@ const ChatPage: React.FC<ChatPageProps> = ({
     return 'assistants';
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [toolsSidebarOpen, setToolsSidebarOpen] = useState(true);
+  const [selectedToolForCall, setSelectedToolForCall] = useState<string>('');
+  const [toolCallInputs, setToolCallInputs] = useState<Record<string, string>>({});
+  const [activeSkillsState, setActiveSkillsState] = useState<Record<string, boolean>>({
+    'Validador de CNPJ': true,
+    'Gerador de Paper': true,
+    'Sintetizador Científico': false,
+    'Integrador Slack': false
+  });
+  const [localToolsList, setLocalToolsList] = useState<Tool[]>(() => {
+    const cached = localStorage.getItem('luna_tools');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // Fallback below
+      }
+    }
+    return [
+      {
+        id: 't1',
+        name: 'fetchCustomerCRM',
+        type: ToolType.HTTP,
+        description: 'Recupera dados cadastrais do cliente via API de CRM da Zucchetti usando o ID do cliente',
+        status: 'active',
+        parameters: [
+          { name: 'id', type: 'string', required: true, description: 'ID único do cliente no CRM' }
+        ]
+      },
+      {
+        id: 't2',
+        name: 'notifySlackChannel',
+        type: ToolType.MCP,
+        description: 'Envia mensagens formatadas para canais específicos do Slack via servidor MCP corporativo',
+        status: 'active',
+        parameters: [
+          { name: 'channel', type: 'string', required: true, description: 'Canal de destino (ex: #leads)' },
+          { name: 'message', type: 'string', required: true, description: 'Conteúdo em markdown customizado' }
+        ]
+      }
+    ];
+  });
 
   useEffect(() => {
     return () => {
@@ -202,8 +244,8 @@ const ChatPage: React.FC<ChatPageProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSend = async () => {
-    if ((!input.trim() && pendingAttachments.length === 0) || !activeResource || !currentConvId) return;
+  const handleSendText = async (textToSend: string, attachmentsArr?: Attachment[]) => {
+    if ((!textToSend.trim() && (!attachmentsArr || attachmentsArr.length === 0)) || !activeResource || !currentConvId) return;
 
     if (!canUserAccessResource(user.role, activeResource.requiredRole)) {
       if (onCreateRequest) {
@@ -211,7 +253,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
           activeResource.id, 
           activeResource.name, 
           activeResource.type === ResourceType.AGENT ? 'Agente' : 'Assistente',
-          input
+          textToSend
         );
         setRequestSent(true);
         setInput('');
@@ -224,10 +266,10 @@ const ChatPage: React.FC<ChatPageProps> = ({
     const userMsg: Message = {
       id: `m-u-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
-      content: input,
+      content: textToSend,
       timestamp: new Date().toLocaleTimeString(),
       agentId: activeResource.id,
-      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
+      attachments: attachmentsArr && attachmentsArr.length > 0 ? [...attachmentsArr] : undefined
     };
 
     onAddMessage(currentConvId, userMsg);
@@ -241,46 +283,120 @@ const ChatPage: React.FC<ChatPageProps> = ({
       setActionFeedback(`O agente ${activeResource.name} está executando ações autorizadas no sistema...`);
     }
 
-    const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
-    
-    // Se for um modelo de mercado, adicionamos uma instrução extra para simular o comportamento
-    const systemInstruction = activeResource.type === ResourceType.MARKET_MODEL 
-      ? `Você é o modelo ${activeResource.name}. Responda de forma precisa e útil, mantendo a identidade deste modelo específico. ${activeResource.prompt || ''}`
-      : activeResource.prompt;
+    const lowerText = textToSend.toLowerCase();
+    const isOiPaper = lowerText.includes('oi') && (lowerText.includes('paper') || lowerText.includes('gera') || lowerText.includes('gerar'));
 
-    const aiResponse = activeResource.webhookUrl 
-      ? await (async () => {
-          try {
-            const response = await fetch(activeResource.webhookUrl!, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: input,
-                user: { id: user.id, name: user.name, role: user.role },
-                resource: { id: activeResource.id, name: activeResource.name },
-                history: history,
-                attachments: userMsg.attachments
-              })
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              // Tenta extrair a resposta de campos comuns ou retorna o JSON formatado
-              return data.response || data.output || data.message || data.text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-            } else {
-              return `⚠️ Erro no Webhook (${response.status}): Não foi possível processar a solicitação externamente.`;
+    let aiResponseContent = '';
+
+    if (isOiPaper) {
+      // Retorna uma payload JSON mágica contendo a estrutura da simulação
+      const scientificPaperData = {
+        isMockSimulation: true,
+        simulationType: 'scientific_paper',
+        steps: [
+          { id: 1, name: "Ativação da Skill: 'Gerador de Paper de IA'", status: "success", info: "Carregando framework e regras de formatação de artigos" },
+          { id: 2, name: "Invocação da Tool MCP: 'searchAcademicArticles'", status: "success", info: "Chamada via servidor SSE corporativo (http://mcp.zucchetti.internal:9050)" },
+          { id: 3, name: "Execução de Skill de Orquestração: 'Sintetizador Acadêmico'", status: "success", info: "Processando as fontes e referências bibliográficas obtidas" },
+          { id: 4, name: "Invocação da Tool HTTP: 'fetchCustomerCRM'", status: "success", info: "Integração contra API ERP/CRM (Zucchetti Inovação S/A, ID: 1002)" },
+          { id: 5, name: "Geração da estrutura científica do documento científico", status: "success", info: "Exportando para formato acadêmico indexável nos padrões internacionais" }
+        ],
+        paper: {
+          title: "A ORQUESTRAÇÃO DE ACIONAMENTOS DE SKILLS E MODEL CONTEXT PROTOCOL (MCP) NOS SISTEMAS DE GESTÃO EMPRESARIAL DO AMANHÃ",
+          authors: "Gabrielli Carvalho Marques, Kristofer Pinheiro, AI Research Zucchetti S.A.",
+          abstract: "Este artigo acadêmico investiga a integração prática de barramentos de Inteligência Artificial por meio de APIs locais e da especificação Model Context Protocol (MCP). Apresentamos uma arquitetura robusta na qual os agentes inteligentes não apenas interpretam a linguagem de forma passiva, mas orquestram de forma proativa chamadas a softwares legados (ERPs, CRMs) e a ambientes externos assíncronos. Por fim, valida-se o modelo propondo um design de barramento robusto dotado de aprovações em múltiplos níveis para processos de gravação.",
+          sections: [
+            {
+              title: "1. Introdução",
+              content: "O paradigma atual do desenvolvimento de software corporativo está passando por uma disrupção sem precedentes. Anteriormente limitados a tomadas de decisão simples coordenadas por fluxogramas restritos, os sistemas de gestão empresarial (ERP) agora necessitam de adaptabilidade cognitiva imediata. O advento das arquiteturas Multi-Agentes de IA e do Model Context Protocol (MCP) da Anthropic estabeleceu um novo padrão aberto no qual LLMs interagem de modo seguro com bancos de dados relacionais e APIs externas sem requerer re-acoplamentos complexos."
+            },
+            {
+              title: "2. Arquitetura Proposta: Agentes Coordenados",
+              content: "Dividimos a arquitetura de orquestração em duas camadas essenciais: os Agentes de Leitura (Reading Assistants), especialistas em vetorização e recuperação aumentada de conteúdo (através de vetores RAG), e os Agentes de Escrita/Ação (Action Agent), capazes de executar chamadas de transações críticas. Através das Skills modulares, a orquestração escolhe oportunamente se deve realizar uma validação cadastral (como o Validador de CNPJ) ou notificar subsistemas parceiros através de barramentos pub/sub."
+            },
+            {
+              title: "3. Metodologia de Validação e Monitoramento",
+              content: "Nossos testes simulam o fluxo de ponta a ponta desencadeado por consultas de linguagem natural no Playground: (a) detecção semântica das intenções do usuário pela LLM; (b) verificação de credenciais e cargo hierárquico necessário; (c) despacho de queries parametrizadas via rotas HTTP ou MCP SSE; (d) compilação de resultados estruturados para fundamentar o relatório ou paper final em formato científico padronizado."
+            },
+            {
+              title: "4. Considerações Finais",
+              content: "A formalização deste novo framework de chamadas no Playground Zucchetti abre caminhos sem paralelos para a automação cognitiva de processos diários. O sucesso das chamadas testadas no assistente Luna consolida a visão de que os sistemas de ERP não serão apenas bancos de dados complexos, mas cérebros corporativos distribuídos e integrados."
             }
-          } catch (error) {
-            console.error("Webhook error:", error);
-            return "❌ Falha na conexão com o Webhook externo. Verifique se a URL está correta e se o serviço (n8n, Lovable, etc.) está aceitando requisições.";
+          ]
+        }
+      };
+      aiResponseContent = 'MOCK_PRESET_PAPER_DATA:' + JSON.stringify(scientificPaperData);
+      await new Promise(resolve => setTimeout(resolve, 800));
+    } else {
+      const isToolSelection = lowerText.includes('executar mcp tool:') || lowerText.includes('mcp tool-call:');
+      if (isToolSelection) {
+        let toolName = 'mcpTool';
+        let args = '{}';
+        let results = '{"status": "success"}';
+
+        if (textToSend.includes('[TOOL]')) {
+          const parts = textToSend.split(/\[TOOL\]/i);
+          if (parts[1]) {
+            const splitted = parts[1].split(/\[ARGS\]/i);
+            toolName = splitted[0].trim();
+            if (splitted[1]) {
+              const resParts = splitted[1].split(/\[RES\]/i);
+              args = resParts[0].trim();
+              if (resParts[1]) {
+                results = resParts[1].trim();
+              }
+            }
           }
-        })()
-      : await generateAgentResponse(input, history, systemInstruction);
+        }
+
+        const toolData = {
+          isMockSimulation: true,
+          simulationType: 'tool_call',
+          toolName: toolName,
+          args: args,
+          results: results
+        };
+        aiResponseContent = 'MOCK_PRESET_TOOL_DATA:' + JSON.stringify(toolData);
+        await new Promise(resolve => setTimeout(resolve, 700));
+      } else {
+        const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
+        const systemInstruction = activeResource.type === ResourceType.MARKET_MODEL 
+          ? `Você é o modelo ${activeResource.name}. Responda de forma precisa e útil, mantendo a identidade deste modelo específico. ${activeResource.prompt || ''}`
+          : activeResource.prompt;
+
+        aiResponseContent = activeResource.webhookUrl 
+          ? await (async () => {
+              try {
+                const response = await fetch(activeResource.webhookUrl!, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: textToSend,
+                    user: { id: user.id, name: user.name, role: user.role },
+                    resource: { id: activeResource.id, name: activeResource.name },
+                    history: history,
+                    attachments: userMsg.attachments
+                  })
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  return data.response || data.output || data.message || data.text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+                } else {
+                  return `⚠️ Erro no Webhook (${response.status}): Não foi possível processar a solicitação externamente.`;
+                }
+              } catch (error) {
+                console.error("Webhook error:", error);
+                return "❌ Falha na conexão com o Webhook externo. Verifique se a URL está correta e se o serviço (n8n, Lovable, etc.) está aceitando requisições.";
+              }
+            })()
+          : await generateAgentResponse(textToSend, history, systemInstruction);
+      }
+    }
 
     const botMsg: Message = {
       id: `m-a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'assistant',
-      content: aiResponse,
+      content: aiResponseContent,
       timestamp: new Date().toLocaleTimeString(),
       agentId: activeResource.id
     };
@@ -290,6 +406,11 @@ const ChatPage: React.FC<ChatPageProps> = ({
     setActionFeedback(null);
   };
 
+  const handleSend = async () => {
+    if ((!input.trim() && pendingAttachments.length === 0) || !activeResource || !currentConvId) return;
+    await handleSendText(input, pendingAttachments);
+  };
+
   const hasPermission = activeResource ? canUserAccessResource(user.role, activeResource.requiredRole) : true;
 
   const agentTypeLabels: Record<AgentType, string> = {
@@ -297,6 +418,34 @@ const ChatPage: React.FC<ChatPageProps> = ({
     [AgentType.WRITING]: 'Escrita',
     [AgentType.INTERPRETATION]: 'Interpretação',
     [AgentType.ACTION]: 'Ação'
+  };
+
+  const renderMessageContent = (msg: Message) => {
+    if (msg.role === 'user') {
+      return <div className="whitespace-pre-wrap">{msg.content}</div>;
+    }
+
+    if (msg.content.startsWith('MOCK_PRESET_PAPER_DATA:')) {
+      try {
+        const rawJson = msg.content.substring('MOCK_PRESET_PAPER_DATA:'.length).trim();
+        const data = JSON.parse(rawJson);
+        return <MockPaperScenarioView data={data} />;
+      } catch (e) {
+        return <div className="whitespace-pre-wrap">{msg.content}</div>;
+      }
+    }
+
+    if (msg.content.startsWith('MOCK_PRESET_TOOL_DATA:')) {
+      try {
+        const rawJson = msg.content.substring('MOCK_PRESET_TOOL_DATA:'.length).trim();
+        const data = JSON.parse(rawJson);
+        return <MockToolScenarioView data={data} />;
+      } catch (e) {
+        return <div className="whitespace-pre-wrap">{msg.content}</div>;
+      }
+    }
+
+    return <div className="whitespace-pre-wrap">{msg.content}</div>;
   };
 
   return (
@@ -481,6 +630,20 @@ const ChatPage: React.FC<ChatPageProps> = ({
                 <Icons.ChevronDown className="w-4 h-4" />
               </div>
             </div>
+
+            <button 
+              onClick={() => setToolsSidebarOpen(!toolsSidebarOpen)}
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                toolsSidebarOpen 
+                  ? 'bg-sky-50 text-[#0070E0] border-sky-200 dark:bg-sky-955/35 dark:text-sky-300 dark:border-sky-900/60' 
+                  : 'bg-white text-slate-550 border-slate-200 dark:bg-[#111827] dark:border-slate-800 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+              title="Configurar Chamadas de Skills/Tools"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 font-bold">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -557,8 +720,8 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         <div className="text-[10px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-widest flex items-center gap-2 select-none">
                           {msg.role === 'user' ? 'Você' : activeResource.name}
                         </div>
-                        <div className="text-base text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
-                          {msg.content}
+                        <div className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-semibold">
+                          {renderMessageContent(msg)}
                         </div>
                       </div>
                     </div>
@@ -678,6 +841,144 @@ const ChatPage: React.FC<ChatPageProps> = ({
         )}
       </main>
 
+      {/* MCP Tools & Skills Right Sidebar Panel */}
+      {toolsSidebarOpen && (
+        <aside className="w-80 flex flex-col gap-4 h-full shrink-0 animate-in slide-in-from-right duration-300">
+          <div className="bg-white dark:bg-[#0d1222] border border-slate-200/60 dark:border-slate-800/80 shadow-xs rounded-2xl p-4 flex flex-col gap-4 h-full overflow-hidden select-none">
+            
+            <div className="flex items-center justify-between border-b border-slate-150 dark:border-slate-800 pb-2">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                MCP & Skills Configurator
+              </span>
+              <span className="bg-sky-50 dark:bg-sky-955/40 text-[#0070E0] dark:text-sky-400 px-2 py-0.5 rounded text-[9px] font-black uppercase">
+                Interactive
+              </span>
+            </div>
+
+            {/* SEÇÃO 1: SKILLS ATIVAS */}
+            <div className="space-y-2.5">
+              <div className="text-[10px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-wider">
+                Skills do Agente Ativas
+              </div>
+              <div className="flex flex-col gap-2">
+                {Object.keys(activeSkillsState).map(skillName => (
+                  <label 
+                    key={skillName}
+                    className="flex items-center gap-2.5 p-2 bg-slate-50 dark:bg-[#111827] border border-slate-200/40 dark:border-slate-800/40 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/30 transition-all select-none"
+                  >
+                    <input 
+                      type="checkbox"
+                      checked={activeSkillsState[skillName]}
+                      onChange={() => setActiveSkillsState(prev => ({ ...prev, [skillName]: !prev[skillName] }))}
+                      className="w-4 h-4 rounded text-[#0070E0] border-slate-305 dark:border-slate-800 focus:ring-sky-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-305">{skillName}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* SEÇÃO 2: INJETOR DE CHAMADAS MCP */}
+            <div className="flex-1 flex flex-col gap-3 overflow-hidden min-h-0">
+              <div className="text-[10px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-wider">
+                Injetor de Chamadas de Tool
+              </div>
+
+              <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+                {/* Seletor de Tool */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Selecionar Tool</label>
+                  <select
+                    value={selectedToolForCall}
+                    onChange={(e) => {
+                      const toolId = e.target.value;
+                      setSelectedToolForCall(toolId);
+                      const found = localToolsList.find(t => t.id === toolId);
+                      if (found) {
+                        const init: Record<string, string> = {};
+                        found.parameters.forEach(p => {
+                          init[p.name] = '';
+                        });
+                        setToolCallInputs(init);
+                      }
+                    }}
+                    className="w-full text-xs font-bold text-slate-705 dark:text-slate-300 bg-slate-55 dark:bg-[#111827] border border-slate-200 dark:border-slate-800 px-3 py-2.5 rounded-xl focus:outline-none"
+                  >
+                    <option value="">-- Escolher Tool --</option>
+                    {localToolsList.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Parâmetros Dinâmicos */}
+                {selectedToolForCall && (() => {
+                  const currentTool = localToolsList.find(t => t.id === selectedToolForCall);
+                  if (!currentTool) return null;
+                  return (
+                    <div className="space-y-3 bg-slate-50 dark:bg-slate-900/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-800/80">
+                      <div className="text-[10px] font-bold text-[#0070E0] dark:text-sky-455 uppercase tracking-wide">
+                        Parâmetros da Tool
+                      </div>
+                      
+                      {currentTool.parameters.map(p => (
+                        <div key={p.name} className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-405 flex items-center justify-between select-none">
+                            <span>{p.name}</span>
+                            <span className="text-slate-400 dark:text-slate-600 font-mono text-[9px]">({p.type}) {p.required && '*'}</span>
+                          </label>
+                          <input 
+                            type="text"
+                            placeholder={p.description || `Insira valor`}
+                            value={toolCallInputs[p.name] || ''}
+                            onChange={(e) => setToolCallInputs(prev => ({ ...prev, [p.name]: e.target.value }))}
+                            className="w-full text-xs bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-302 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          />
+                        </div>
+                      ))}
+
+                      <button
+                        onClick={() => {
+                          const toolArgs = { ...toolCallInputs };
+                          currentTool.parameters.forEach(p => {
+                            if (!toolArgs[p.name]) {
+                              toolArgs[p.name] = p.name === 'id' ? '1002' : 'Valor default';
+                            }
+                          });
+
+                          const toolCallString = `executar mcp tool: [TOOL] ${currentTool.name} [ARGS] ${JSON.stringify(toolArgs)} [RES] {"status": "success", "results": {"execution_time": "142ms", "data": {"target": "${currentTool.name}", "output": "Sucesso", "source_arguments": ${JSON.stringify(toolArgs)}}}}`;
+                          handleSendText(toolCallString);
+                        }}
+                        className="w-full py-2 bg-[#0070E0] hover:bg-sky-700 text-white font-bold rounded-lg text-xs transition-all shadow-sm cursor-pointer"
+                      >
+                        Injetar Chamada na Conversa
+                      </button>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            </div>
+
+            {/* SEÇÃO 3: TESTES PRONTOS */}
+            <div className="border-t border-slate-150 dark:border-slate-800 pt-3.5 space-y-2.5 shrink-0">
+              <div className="text-[10px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-wider">
+                Simulações de Cenário
+              </div>
+              <button
+                onClick={() => {
+                  handleSendText("oi, gera um paper");
+                }}
+                className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-sky-100/10 cursor-pointer"
+              >
+                <span>🚀 Simular: "Oi, gera um paper"</span>
+              </button>
+            </div>
+
+          </div>
+        </aside>
+      )}
+
       {/* Input de arquivo invisível */}
       <input 
         type="file" 
@@ -716,6 +1017,279 @@ const ChatPage: React.FC<ChatPageProps> = ({
                 <button type="submit" className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-sky-100/10 cursor-pointer">Adicionar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Nested / Extra components for visual mockup and tracing:
+const MockToolScenarioView: React.FC<{ data: any }> = ({ data }) => {
+  return (
+    <div className="space-y-3 w-full max-w-md animate-in fade-in duration-300">
+      <div className="bg-slate-950 text-[#38bdf8] font-mono text-[11px] p-4.5 rounded-xl shadow-lg border border-slate-800 space-y-2.5">
+        <div className="flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-2 text-slate-400 text-[10px]">
+          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span>
+          <span>SISTEMA DE AUDITORIA MCP - TOOL CALL TRACE</span>
+        </div>
+        <div>
+          <span className="text-[#a855f7]">⚙ Tool Executed:</span>{' '}
+          <span className="text-white font-bold">{data.toolName}</span>
+        </div>
+        <div>
+          <span className="text-slate-400 font-bold">↳ Arguments:</span>{' '}
+          <code className="text-[#fbbf24] bg-slate-900/50 px-1.5 py-0.5 rounded text-[11px]">{data.args}</code>
+        </div>
+        <div className="border-t border-slate-800/60 pt-2 mt-2">
+          <span className="text-slate-400 font-bold">↳ Returns:</span>
+          <pre className="text-[#34d399] mt-1 p-3 bg-slate-900 rounded overflow-x-auto text-[10px] leading-relaxed max-h-40">
+            {data.results}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MockPaperScenarioView: React.FC<{ data: any }> = ({ data }) => {
+  const [activeStepTab, setActiveStepTab] = React.useState<number | null>(null);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [downloadProgress, setDownloadProgress] = React.useState(0);
+
+  // Dynamic step-by-step state matching Claude's behavior
+  const totalSteps = data.steps.length;
+  const [stepStates, setStepStates] = React.useState<Array<'pending' | 'running' | 'completed'>>(() => 
+    Array(totalSteps).fill('pending')
+  );
+  const [paperReady, setPaperReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let currentIdx = 0;
+    
+    // Set the first step to 'running'
+    setStepStates(prev => {
+      const next = [...prev];
+      if (next.length > 0) next[0] = 'running';
+      return next;
+    });
+
+    const interval = setInterval(() => {
+      setStepStates(prev => {
+        const next = [...prev];
+        // Mark current as completed
+        if (currentIdx < totalSteps) {
+          next[currentIdx] = 'completed';
+        }
+        
+        // If there is a next one, mark it as running
+        if (currentIdx < totalSteps - 1) {
+          next[currentIdx + 1] = 'running';
+        }
+        return next;
+      });
+
+      currentIdx++;
+
+      if (currentIdx >= totalSteps) {
+        clearInterval(interval);
+        // Delay a bit to show a smooth transition to paper generation
+        setTimeout(() => {
+          setPaperReady(true);
+        }, 800);
+      }
+    }, 1400); // 1.4 seconds per step for an immersive execution feel
+
+    return () => clearInterval(interval);
+  }, [totalSteps]);
+
+  const startDownloadSimulation = () => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    const interval = setInterval(() => {
+      setDownloadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setIsDownloading(false);
+            alert('ℹ️ Download Completo! Arquivo "Zucchetti_IA_Orchestration_Paper.pdf" salvo na sua pasta local.');
+          }, 500);
+          return 100;
+        }
+        return prev + 20;
+      });
+    }, 150);
+  };
+
+  return (
+    <div className="space-y-6 w-full max-w-2xl mt-4 animate-in fade-in duration-300">
+      {/* Orquestração Header de Auditoria */}
+      <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800 p-4.5 rounded-2xl flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Orquestração Hub de Inteligência</span>
+          </div>
+          {!paperReady && (
+            <span className="text-[10px] font-mono text-sky-600 dark:text-sky-400 animate-pulse font-extrabold flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full border-1.5 border-t-transparent border-sky-600 animate-spin"></span>
+              Orquestrando Skills & MCP...
+            </span>
+          )}
+        </div>
+        
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+          Para realizar a instrução "gera um paper", o secretário orquestra internamente a ativação de <strong>02 Skills</strong> de IA e executa chamadas via <strong>Model Context Protocol (MCP)</strong> e <strong>HTTP API</strong>.
+        </p>
+
+        {/* Linha do Tempo / Timeline */}
+        <div className="flex flex-col gap-2 mt-2">
+          {data.steps.map((step: any, idx: number) => {
+            const state = stepStates[idx] || 'pending';
+            return (
+              <div 
+                key={step.id} 
+                onClick={() => {
+                  if (state !== 'pending') {
+                    setActiveStepTab(activeStepTab === idx ? null : idx);
+                  }
+                }}
+                className={`group border rounded-xl p-3 transition-all flex flex-col gap-1.5 shadow-2xs ${
+                  state === 'pending'
+                    ? 'border-slate-100 dark:border-slate-805 opacity-30 cursor-not-allowed bg-slate-100/5'
+                    : state === 'running'
+                    ? 'border-sky-400 dark:border-sky-900 bg-sky-50 dark:bg-sky-955/10 cursor-pointer shadow-xs border-dashed'
+                    : 'border-slate-200/50 dark:border-slate-800/80 hover:border-sky-350 dark:hover:border-sky-900 bg-white dark:bg-[#111827] cursor-pointer'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {state === 'completed' && (
+                    <span className="w-4.5 h-4.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0">
+                      ✓
+                    </span>
+                  )}
+                  {state === 'running' && (
+                    <span className="w-4.5 h-4.5 bg-sky-50 dark:bg-sky-955/20 text-[#0070E0] rounded-full flex items-center justify-center text-[10px] shrink-0 animate-spin border-1.5 border-t-transparent border-[#0070E0]">
+                    </span>
+                  )}
+                  {state === 'pending' && (
+                    <span className="w-4.5 h-4.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 rounded-full flex items-center justify-center text-[10px] shrink-0 font-bold">
+                      •
+                    </span>
+                  )}
+                  
+                  <span className={`text-xs font-bold ${
+                    state === 'pending' 
+                      ? 'text-slate-400 dark:text-[#4b5563]' 
+                      : state === 'running' 
+                      ? 'text-sky-700 dark:text-sky-300 font-extrabold' 
+                      : 'text-slate-755 dark:text-slate-200'
+                  }`}>
+                    {step.name}
+                  </span>
+
+                  <span className={`text-[9px] font-black uppercase ml-auto px-2 py-0.5 rounded-md ${
+                    state === 'pending'
+                      ? 'bg-slate-55 dark:bg-slate-900/50 text-slate-400 dark:text-slate-600'
+                      : state === 'running'
+                      ? 'bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 animate-pulse'
+                      : 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450'
+                  }`}>
+                    {state === 'pending' ? 'AGUARDANDO' : state === 'running' ? 'EXECUTANDO...' : 'SUCESSO'}
+                  </span>
+                </div>
+
+                {/* Auto expand details when running or when toggled */}
+                {(state === 'running' || activeStepTab === idx) && (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-405 pl-7 pb-1 border-t border-slate-100 dark:border-slate-805 pt-2 font-mono leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
+                    {step.info}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Visualização do Paper / Artigo - Fica oculto até as etapas finalizarem */}
+      {paperReady ? (
+        <div className="bg-white dark:bg-[#0c101d] border border-slate-200/80 dark:border-slate-800/80 shadow-md rounded-[20px] overflow-hidden animate-in fade-in zoom-in-98 duration-500">
+          {/* Capa Acadêmica do Paper */}
+          <div className="border-b-4 border-[#0070E0] p-8 text-center space-y-4 bg-slate-50/20">
+            <div className="text-[10px] font-black tracking-widest text-[#0070E0] dark:text-sky-404 uppercase">
+              Artigo Técnico-Científico Interno Zucchetti
+            </div>
+            <h1 className="text-lg font-extrabold text-slate-850 dark:text-white leading-snug font-sans tracking-tight max-w-lg mx-auto">
+              {data.paper.title}
+            </h1>
+            <div className="text-xs font-bold text-slate-550 dark:text-slate-404 font-mono">
+              {data.paper.authors}
+            </div>
+          </div>
+
+          {/* Resumo / Abstract */}
+          <div className="p-8 pb-4 bg-slate-50/50 dark:bg-slate-900/10 border-b border-slate-200/40 dark:border-slate-800/60">
+            <div className="text-xs font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest mb-2 text-center">
+              Abstract
+            </div>
+            <p className="text-xs text-slate-505 dark:text-slate-400 leading-relaxed text-justify italic max-w-xl mx-auto font-medium">
+              {data.paper.abstract}
+            </p>
+          </div>
+
+          {/* Conteúdo Técnico de Duas Colunas */}
+          <div className="p-8 space-y-6 max-h-[350px] overflow-y-auto border-b border-slate-100 dark:border-slate-850">
+            {data.paper.sections.map((section: any, idx: number) => (
+              <div key={idx} className="space-y-2">
+                <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider border-b pb-1 border-slate-100 dark:border-slate-800">
+                  {section.title}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed text-justify">
+                  {section.content}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Rodapé do Visual do Paper com Botão Interativo */}
+          <div className="p-5 bg-slate-55 dark:bg-slate-900/30 flex items-center justify-between">
+            <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
+              Formato: PDF/A-1b • ABNT NBR 14724
+            </div>
+            
+            {isDownloading ? (
+              <div className="flex items-center gap-3">
+                <div className="w-24 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-sky-600 h-full transition-all duration-150" 
+                    style={{ width: `${downloadProgress}%` }}
+                  ></div>
+                </div>
+                <span className="text-[10px] uppercase font-black text-sky-600 dark:text-sky-455">{downloadProgress}%</span>
+              </div>
+            ) : (
+              <button 
+                onClick={startDownloadSimulation}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#0070E0] hover:bg-sky-700 text-white text-xs font-bold rounded-lg transition-all shadow-md shadow-sky-100/10 cursor-pointer"
+              >
+                <span>Baixar Artigo (PDF)</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-slate-50/50 dark:bg-slate-900/20 border-2 border-dashed border-slate-200/80 dark:border-slate-800/80 rounded-[20px] p-10 text-center flex flex-col items-center justify-center gap-3 animate-pulse">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent border-sky-500 animate-spin"></div>
+          <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            Aguardando a conclusão das etapas de auditoria...
+          </div>
+          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            Compilando fontes bibliográficas e formatando paper técnico.
           </div>
         </div>
       )}

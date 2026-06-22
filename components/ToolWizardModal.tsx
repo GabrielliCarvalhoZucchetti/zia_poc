@@ -247,73 +247,12 @@ export const ToolWizardModal: React.FC<ToolWizardModalProps> = ({
       setStep(2);
     } 
     else if (step === 2) {
-      if (toolType === ToolType.HTTP) {
-        if (url.trim()) {
-          // Basic URL validator
-          if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
-            setValidationError("A URL deve ser válida (começando com http://, https:// ou caminho relativo de API/).");
-            return;
-          }
-        }
-      } else {
-        if (serverUrl.trim()) {
-          if (!hasDiscoveredSuccessfully || !selectedDiscoveredTool) {
-            setValidationError("É obrigatório testar a conexão e selecionar uma das tools expostas pelo servidor MCP para prosseguir.");
-            return;
-          }
-        }
-      }
       setStep(3);
     } 
     else if (step === 3) {
-      const cleanName = name.trim();
-      if (!cleanName) {
-        setValidationError("O nome de identificação da tool é obrigatório.");
-        return;
-      }
-      // Alphanumeric, underscores, camelCase validation
-      if (!/^[a-zA-Z0-9_\-]+$/.test(cleanName)) {
-        setValidationError("O nome deve conter apenas letras, números, hífens ou underlines, sem espaços.");
-        return;
-      }
-      if (!description.trim()) {
-        setValidationError("A descrição orientada à LLM é obrigatória.");
-        return;
-      }
-
-      // RF07 name uniqueness inside current resource
-      const hasDuplicate = siblingTools.some(st => {
-        // Exclude the current tool being edited itself is existing
-        if (existingTool && st.id === existingTool.id) return false;
-        return st.name.toLowerCase() === cleanName.toLowerCase();
-      });
-
-      if (hasDuplicate) {
-        setValidationError("Já existe uma tool com o nome correspondente vinculada a esta resource. Escolha outro nome para evitar problemas de roteamento.");
-        return;
-      }
-
       setStep(4);
     } 
     else if (step === 4) {
-      // Validate parameters
-      if (parameters.length > 0) {
-        for (let i = 0; i < parameters.length; i++) {
-          const p = parameters[i];
-          if (!p.name.trim()) {
-            setValidationError(`O nome do parâmetro #${i + 1} não pode ficar vazio.`);
-            return;
-          }
-          if (!/^[a-zA-Z0-9_]+$/.test(p.name)) {
-            setValidationError(`O nome do parâmetro "${p.name}" deve conter apenas caracteres alfanuméricos, sem espaços.`);
-            return;
-          }
-          if (!p.description.trim()) {
-            setValidationError(`Forneça uma descrição clara para o parâmetro "${p.name}" orientando o LLM.`);
-            return;
-          }
-        }
-      }
       setStep(5);
     }
   };
@@ -326,11 +265,12 @@ export const ToolWizardModal: React.FC<ToolWizardModalProps> = ({
   };
 
   const handlePublish = () => {
+    const fallbackName = name.trim() || `tool_${Math.random().toString(36).substr(2, 5)}`;
     const finalTool: Tool = {
       id: existingTool ? existingTool.id : `t-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: name.trim(),
+      name: fallbackName,
       type: toolType,
-      description: description.trim(),
+      description: description.trim() || 'Sem descrição cadastrada.',
       status: status,
       parameters: parameters,
       ...(toolType === ToolType.HTTP ? {
