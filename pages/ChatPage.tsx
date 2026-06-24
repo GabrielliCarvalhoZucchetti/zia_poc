@@ -754,9 +754,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                           {conv.title}
                         </div>
                         {isUnread && (
-                          <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase animate-pulse select-none">
-                            Nova Ativa
-                          </span>
+                          <div className="w-2.5 h-2.5 bg-[#0099ff] rounded-full shrink-0"></div>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 w-full">
@@ -780,7 +778,6 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         </span>
                       </div>
                       {currentConvId === conv.id && !isUnread && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sky-500 rounded-full"></div>}
-                      {isUnread && <div className="absolute right-3 top-2.5 w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>}
                     </button>
                   );
                 })}
