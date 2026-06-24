@@ -75,6 +75,11 @@ export interface ResourceVersion {
   updatedAt: string;
   updatedBy: string;
   tools?: string[];
+  schedulerEnabled?: boolean;
+  schedulerPeriodicity?: string;
+  schedulerTriggerType?: 'tool' | 'prompt';
+  schedulerTriggerToolId?: string;
+  schedulerTriggerPrompt?: string;
 }
 
 export interface Resource {
@@ -101,6 +106,11 @@ export interface Resource {
   version: number;
   updatedAt: string;
   history?: ResourceVersion[];
+  schedulerEnabled?: boolean;
+  schedulerPeriodicity?: string;
+  schedulerTriggerType?: 'tool' | 'prompt';
+  schedulerTriggerToolId?: string;
+  schedulerTriggerPrompt?: string;
 }
 
 export interface Attachment {
@@ -126,6 +136,7 @@ export interface Conversation {
   resourceId: string;
   messages: Message[];
   updatedAt: string;
+  unread?: boolean;
 }
 
 export interface Comment {
@@ -232,4 +243,15 @@ export interface AccessRequest {
   iaTeamApproved?: boolean;
   resourceOwnerEmail?: string;
   metadata?: any;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  agentName: string;
+  agentId: string;
+  read: boolean;
+  type: 'alert' | 'success' | 'info';
 }

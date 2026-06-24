@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Resource, Message, Conversation, UserRole, AgentType, Attachment, ResourceType, ResourceEnvironment, Tool, ToolType } from '../types';
+import { User, Resource, Message, Conversation, UserRole, AgentType, Attachment, ResourceType, ResourceEnvironment, Tool, ToolType, Notification } from '../types';
 import { Icons, canUserAccessResource } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
 
@@ -12,6 +12,9 @@ interface ChatPageProps {
   onCreateRequest?: (resourceId: string, resourceName: string, category: 'Agente' | 'Assistente' | 'Automação', reason?: string) => void;
   resources: Resource[];
   setActiveResource: (resource: Resource) => void;
+  notifications?: Notification[];
+  setNotifications?: React.Dispatch<React.SetStateAction<Notification[]>>;
+  setConversations?: React.Dispatch<React.SetStateAction<Conversation[]>>;
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ 
@@ -22,7 +25,10 @@ const ChatPage: React.FC<ChatPageProps> = ({
   onNewConversation,
   onCreateRequest,
   resources,
-  setActiveResource
+  setActiveResource,
+  notifications = [],
+  setNotifications,
+  setConversations
 }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -90,10 +96,199 @@ const ChatPage: React.FC<ChatPageProps> = ({
     ];
   });
 
+  const [schedulerSimulating, setSchedulerSimulating] = useState(false);
+  const [schedulerSimSteps, setSchedulerSimSteps] = useState<{ label: string; status: 'pending' | 'loading' | 'success' }[]>([]);
+  const [schedulerOutput, setSchedulerOutput] = useState<string>('');
+
+  const handleSimulateScheduler = async () => {
+    if (!activeResource || activeResource.type !== ResourceType.AGENT || !activeResource.schedulerEnabled) return;
+    if (schedulerSimulating) return;
+    if (!currentConvId) {
+      alert("Por favor, selecione ou inicie uma conversa para testar o agendador.");
+      return;
+    }
+
+    setSchedulerSimulating(true);
+    setSchedulerOutput('');
+    
+    const steps: { label: string; status: 'pending' | 'loading' | 'success' }[] = [
+      { label: 'Iniciando ciclo de agendamento autônomo', status: 'loading' },
+      { label: `Carregando gatilho: ${activeResource.schedulerTriggerType === 'tool' ? 'Invocação de Tool' : 'Prompt auxiliar'}`, status: 'pending' },
+      { label: 'Injetando no system prompt do reasoning', status: 'pending' },
+      { label: 'Processando reasoning (system prompt + RAG + tools)', status: 'pending' },
+      { label: 'Gerando output e publicando no Playground', status: 'pending' }
+    ];
+    setSchedulerSimSteps([...steps]);
+
+    // Passo 1: Inicializando
+    await new Promise(r => setTimeout(r, 1000));
+    steps[0].status = 'success';
+    steps[1].status = 'loading';
+    setSchedulerSimSteps([...steps]);
+
+    // Passo 2: Gatilho
+    await new Promise(r => setTimeout(r, 1500));
+    let triggerData = '';
+    if (activeResource.schedulerTriggerType === 'tool') {
+      const tool = localToolsList.find(t => t.id === activeResource.schedulerTriggerToolId) || localToolsList[0];
+      triggerData = `[Invocação automática de Tool: ${tool?.name || 'fetchCustomerCRM'}] Retorno da API: {"clienteId": "1002", "status_faturamento": "ativo", "limite_mcp": "Zucchetti Prime", "pendencias_financeiras": []}`;
+    } else {
+      triggerData = activeResource.schedulerTriggerPrompt || 'Verificar novas atualizações.';
+    }
+    steps[1].status = 'success';
+    steps[1].label += ` - Resolvido: "${triggerData.substring(0, 45)}..."`;
+    steps[2].status = 'loading';
+    setSchedulerSimSteps([...steps]);
+
+    // Passo 3: Injeção de contexto
+    await new Promise(r => setTimeout(r, 1200));
+    steps[2].status = 'success';
+    steps[3].status = 'loading';
+    setSchedulerSimSteps([...steps]);
+
+    // Passo 4: Chamada à IA
+    await new Promise(r => setTimeout(r, 2000));
+    let promptToSend = `[EXECUTADO VIA AGENDADOR PERIÓDICO AUTÔNOMO]\nSystem instructions complementares: O usuário não está online para interagir. Execute as ações de forma totalmente autônoma baseado no seguinte dado de gatilho de entrada:\n"${triggerData}"\n\nPor favor, retorne sua resposta/ação consolidada.`;
+    
+    const systemInstruction = activeResource.prompt || '';
+    const history = conversations.find(c => c.id === currentConvId)?.messages || [];
+    
+    let aiResponse = 'Simulação concluída com sucesso.';
+    try {
+      aiResponse = await generateAgentResponse(promptToSend, history, systemInstruction);
+    } catch (err) {
+      console.error(err);
+      aiResponse = `[Ação Autônoma do Agente]: Com base no gatilho "${triggerData}", analisei os dados da organização e encaminhei as atualizações consolidadas para os setores devidos.`;
+    }
+
+    steps[3].status = 'success';
+    steps[4].status = 'loading';
+    setSchedulerSimSteps([...steps]);
+
+    // Passo 5: Registro de Mensagens Autônomas na Conversa
+    await new Promise(r => setTimeout(r, 1000));
+    
+    const triggerMsg: Message = {
+      id: `m-sch-trig-${Date.now()}`,
+      role: 'user',
+      content: `🕒 [AGENDADOR - EXECUÇÃO AUTÔNOMA]\nFrequência de disparo: ${activeResource.schedulerPeriodicity}\nGatilho: ${activeResource.schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt auxiliar'}\nDado injetado: "${triggerData}"`,
+      timestamp: new Date().toLocaleTimeString(),
+      agentId: activeResource.id
+    };
+    onAddMessage(currentConvId, triggerMsg);
+
+    const actionMsg: Message = {
+      id: `m-sch-act-${Date.now()}`,
+      role: 'assistant',
+      content: aiResponse,
+      timestamp: new Date().toLocaleTimeString(),
+      agentId: activeResource.id
+    };
+    onAddMessage(currentConvId, actionMsg);
+
+    steps[4].status = 'success';
+    setSchedulerSimSteps([...steps]);
+    setSchedulerOutput(aiResponse);
+    setSchedulerSimulating(false);
+  };
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, []);
+
+  // Simulação de Mensagens Ativas e Notificações ao acessar a aba de Playground
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // 1. Simular novas notificações no Header/Bell
+      const newNotifications: Notification[] = [
+        {
+          id: `notif-luna-${Date.now()}`,
+          title: "Análise Autônoma de Reunião",
+          description: "Luna processou os áudios e gerou 3 metas táticas para o setor de Inovação.",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          agentName: "Luna, o secretário",
+          agentId: "luna-secretario",
+          read: false,
+          type: 'info'
+        },
+        {
+          id: `notif-audit-${Date.now()}`,
+          title: "Alerta de Segurança Crítico",
+          description: "Múltiplos acessos suspeitos na API 'fetchCustomerCRM'. Recomendado revisar logs.",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          agentName: "Auditor de Sistema",
+          agentId: "r4",
+          read: false,
+          type: 'alert'
+        }
+      ];
+
+      if (setNotifications) {
+        setNotifications(prev => {
+          // Evita duplicar notificações idênticas recentes
+          const hasRecent = prev.some(n => n.title === "Análise Autônoma de Reunião" || n.title === "Alerta de Segurança Crítico");
+          if (hasRecent) return prev;
+          return [...newNotifications, ...prev];
+        });
+      }
+
+      // 2. Simular novas conversas não lidas ou adicionar mensagens não lidas no Histórico
+      if (setConversations) {
+        setConversations(prev => {
+          const copy = [...prev];
+          
+          // Agente Luna
+          const lunaConvIndex = copy.findIndex(c => c.resourceId === 'luna-secretario' && c.unread);
+          if (lunaConvIndex === -1) {
+            const newLunaConv: Conversation = {
+              id: `conv-active-luna-${Date.now()}`,
+              title: "Metas Táticas de Inovação",
+              resourceId: "luna-secretario",
+              unread: true,
+              updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              messages: [
+                {
+                  id: `msg-active-luna-${Date.now()}`,
+                  role: 'assistant',
+                  content: "Olá Gabrielli! Como secretário executivo, acabei de processar e vetorizar no RAG a última gravação da reunião de IA. Identifiquei 3 metas táticas importantes atribuídas a você:\n\n1. **Ajuste de Modelos**: Testar prompts com o Gemini 2.5 Pro no playground.\n2. **Validação de CNPJ**: Sincronizar o validador com a API nacional até sexta-feira.\n3. **Relatório de Produtividade**: Compilar métricas do NPS.\n\nDeseja que eu elabore um plano de ação para alguma destas tarefas?",
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  agentId: "luna-secretario"
+                }
+              ]
+            };
+            copy.push(newLunaConv);
+          }
+
+          // Agente Auditor
+          const auditConvIndex = copy.findIndex(c => c.resourceId === 'r4' && c.unread);
+          if (auditConvIndex === -1) {
+            const newAuditConv: Conversation = {
+              id: `conv-active-audit-${Date.now()}`,
+              title: "Alerta de Logs de Segurança",
+              resourceId: "r4",
+              unread: true,
+              updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              messages: [
+                {
+                  id: `msg-active-audit-${Date.now()}`,
+                  role: 'assistant',
+                  content: "⚠️ **[ALERTA DE AUDITORIA DE SISTEMA]**\n\nDetectei múltiplos acessos de IPs externos não autorizados tentando efetuar chamadas na API `fetchCustomerCRM`. \n\n- **Ação Recomendada**: Revogar a chave temporária ou ativar autenticação de duplo fator para o gateway de API.\n- **Severidade**: Alta\n- **Timestamp**: " + new Date().toLocaleString() + "\n\nDeseja realizar o bloqueio automático via MCP ou investigar os detalhes do log?",
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  agentId: "r4"
+                }
+              ]
+            };
+            copy.push(newAuditConv);
+          }
+
+          return copy;
+        });
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const scrollToBottom = () => {
@@ -114,9 +309,16 @@ const ChatPage: React.FC<ChatPageProps> = ({
       const lastConvForResource = conversations.find(c => c.resourceId === activeResource.id);
       if (lastConvForResource) {
         setCurrentConvId(lastConvForResource.id);
+        if (lastConvForResource.unread && setConversations) {
+          setConversations(prev => prev.map(c => c.id === lastConvForResource.id ? { ...c, unread: false } : c));
+        }
       } else {
         const id = onNewConversation(activeResource.id);
         setCurrentConvId(id);
+      }
+    } else {
+      if (currentConv.unread && setConversations) {
+        setConversations(prev => prev.map(c => c.id === currentConv.id ? { ...c, unread: false } : c));
       }
     }
 
@@ -132,6 +334,10 @@ const ChatPage: React.FC<ChatPageProps> = ({
 
   const handleSelectConversation = (conv: Conversation) => {
     setCurrentConvId(conv.id);
+    if (conv.unread && setConversations) {
+      setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread: false } : c));
+    }
+
     const associatedResource = resources.find(r => r.id === conv.resourceId);
     if (associatedResource) {
       setActiveResource(associatedResource);
@@ -520,41 +726,64 @@ const ChatPage: React.FC<ChatPageProps> = ({
               HISTÓRICO DE CONVERSAS
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-              {conversations.map(conv => {
-                const assocResource = resources.find(r => r.id === conv.resourceId);
-                const isMarketModel = assocResource?.type === ResourceType.MARKET_MODEL;
-                
-                return (
-                  <button
-                    key={conv.id}
-                    onClick={() => handleSelectConversation(conv)}
-                    className={`w-full text-left p-3 rounded-xl group transition-all relative flex flex-col gap-1 cursor-pointer ${
-                      currentConvId === conv.id 
-                        ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 font-bold' 
-                        : 'text-slate-600 hover:bg-slate-55 dark:text-slate-300 dark:hover:bg-slate-655'
-                    }`}
-                  >
-                    <div className="text-sm font-semibold truncate pr-4 w-full">{conv.title}</div>
-                    <div className="flex items-center gap-1.5 w-full">
-                      {assocResource ? (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-                          isMarketModel 
-                            ? 'bg-indigo-50 text-indigo-600 border border-indigo-100/50 dark:bg-indigo-950/55 dark:text-indigo-400 dark:border-indigo-900/50' 
-                            : 'bg-sky-50 text-sky-70 border border-sky-100/50 dark:bg-sky-955 dark:text-sky-350 dark:border-sky-900/50'
-                        }`}>
-                          {assocResource.name}
+              {[...conversations]
+                .sort((a, b) => {
+                  if (a.unread && !b.unread) return -1;
+                  if (!a.unread && b.unread) return 1;
+                  return 0;
+                })
+                .map(conv => {
+                  const assocResource = resources.find(r => r.id === conv.resourceId);
+                  const isMarketModel = assocResource?.type === ResourceType.MARKET_MODEL;
+                  const isUnread = conv.unread;
+                  
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => handleSelectConversation(conv)}
+                      className={`w-full text-left p-3 rounded-xl group transition-all relative flex flex-col gap-1 cursor-pointer ${
+                        currentConvId === conv.id 
+                          ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 font-bold border border-sky-100 dark:border-sky-900/40' 
+                          : isUnread
+                            ? 'bg-indigo-50/60 text-indigo-950 hover:bg-indigo-50/80 dark:bg-indigo-950/20 dark:text-indigo-250 border-l-3 border-indigo-500 font-extrabold'
+                            : 'text-slate-600 hover:bg-slate-55 dark:text-slate-300 dark:hover:bg-slate-655'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className={`text-sm truncate pr-2 flex-1 ${isUnread ? 'font-black' : 'font-semibold'}`}>
+                          {conv.title}
+                        </div>
+                        {isUnread && (
+                          <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase animate-pulse select-none">
+                            Nova Ativa
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 w-full">
+                        {assocResource ? (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                            isUnread
+                              ? 'bg-indigo-100 text-indigo-750 dark:bg-indigo-950 dark:text-indigo-300'
+                              : isMarketModel 
+                                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100/50 dark:bg-indigo-950/55 dark:text-indigo-400 dark:border-indigo-900/50' 
+                                : 'bg-sky-50 text-sky-70 border border-sky-100/50 dark:bg-sky-955 dark:text-sky-350 dark:border-sky-900/50'
+                          }`}>
+                            {assocResource.name}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-slate-100 text-slate-550 border border-slate-200/50 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                            Modelo Externo
+                          </span>
+                        )}
+                        <span className="text-[8px] text-slate-400 font-medium ml-auto">
+                          {conv.updatedAt || '11:33'}
                         </span>
-                      ) : (
-                        <span className="text-[9px] bg-slate-100 text-slate-550 border border-slate-200/50 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                          Modelo Externo
-                        </span>
-                      )}
-                      <span className="text-[8px] text-slate-400 font-medium ml-auto">11:33</span>
-                    </div>
-                    {currentConvId === conv.id && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sky-500 rounded-full"></div>}
-                  </button>
-                );
-              })}
+                      </div>
+                      {currentConvId === conv.id && !isUnread && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sky-500 rounded-full"></div>}
+                      {isUnread && <div className="absolute right-3 top-2.5 w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>}
+                    </button>
+                  );
+                })}
               {conversations.length === 0 && (
                 <div className="text-center py-20 px-4 text-xs text-slate-400 dark:text-slate-500 italic select-none">
                   Nenhuma conversa ainda
@@ -959,6 +1188,82 @@ const ChatPage: React.FC<ChatPageProps> = ({
 
               </div>
             </div>
+
+            {/* SEÇÃO AGENDADOR AUTÔNOMO */}
+            {activeResource && activeResource.type === ResourceType.AGENT && activeResource.schedulerEnabled && (
+              <div className="border-t border-slate-150 dark:border-slate-800 pt-3.5 space-y-2.5 shrink-0 select-none">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>🕒</span>
+                    <span>Agendador Autônomo</span>
+                  </div>
+                  <span className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900 px-1.5 py-0.5 rounded text-[8px] font-black uppercase animate-pulse">
+                    ATIVO
+                  </span>
+                </div>
+                
+                <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/60 dark:border-indigo-900/40 space-y-2 text-left">
+                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span>Periodicidade:</span>
+                    <span className="bg-indigo-100/70 dark:bg-indigo-900 px-2 py-0.5 rounded-md font-mono text-[9px] text-indigo-800 dark:text-indigo-200 font-extrabold uppercase">
+                      {activeResource.schedulerPeriodicity}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span>Tipo Gatilho:</span>
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">
+                      {activeResource.schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt auxiliar'}
+                    </span>
+                  </div>
+
+                  {activeResource.schedulerTriggerType === 'tool' ? (
+                    <div className="text-[9px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-indigo-50 dark:border-indigo-950/30 text-slate-550 dark:text-slate-400 space-y-1">
+                      <span className="font-extrabold block text-[8px] text-indigo-600 dark:text-indigo-400 uppercase">Tool Associada:</span>
+                      <span className="font-mono block truncate font-black text-slate-700 dark:text-slate-300">
+                        {localToolsList.find(t => t.id === activeResource.schedulerTriggerToolId)?.name || 'fetchCustomerCRM'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-[9px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-indigo-50 dark:border-indigo-950/30 text-slate-550 dark:text-slate-400 space-y-1">
+                      <span className="font-extrabold block text-[8px] text-indigo-600 dark:text-indigo-400 uppercase">Prompt Auxiliar:</span>
+                      <p className="line-clamp-2 italic font-semibold leading-relaxed">
+                        "{activeResource.schedulerTriggerPrompt || 'Sem prompt auxiliar'}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Terminal de simulação */}
+                  {schedulerSimSteps.length > 0 && (
+                    <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-[9px] text-slate-350 space-y-1.5 mt-2 max-h-36 overflow-y-auto">
+                      <div className="text-[8px] text-slate-500 font-bold border-b border-slate-850 pb-1 flex items-center justify-between">
+                        <span>LUNA_SCHEDULER_LOG</span>
+                        <span className="animate-pulse text-indigo-500">●</span>
+                      </div>
+                      {schedulerSimSteps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5">
+                          <span>
+                            {step.status === 'success' ? '✅' : step.status === 'loading' ? '🔄' : '💤'}
+                          </span>
+                          <span className={`leading-normal ${step.status === 'loading' ? 'text-indigo-400 font-bold animate-pulse' : step.status === 'pending' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            {step.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={schedulerSimulating}
+                    onClick={handleSimulateScheduler}
+                    className="w-full mt-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-550 text-white font-bold rounded-lg text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <span>⚡</span>
+                    <span>{schedulerSimulating ? 'Rodando ciclo...' : 'Disparar Agendador'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* SEÇÃO 3: TESTES PRONTOS */}
             <div className="border-t border-slate-150 dark:border-slate-800 pt-3.5 space-y-2.5 shrink-0">

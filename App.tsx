@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask, ResourceVersion, Tool, ToolType } from './types';
+import { User, UserRole, Resource, ResourceType, AgentType, Conversation, Message, ResourceEnvironment, AccessRequest, Project, Subtask, ResourceVersion, Tool, ToolType, Notification } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
@@ -262,9 +262,24 @@ const AppInner: React.FC = () => {
   const [resources, setResources] = useState<Resource[]>(INITIAL_RESOURCES);
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [activeResource, setActiveResource] = useState<Resource | null>(INITIAL_RESOURCES[0]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const cached = localStorage.getItem('luna_conversations');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const cached = localStorage.getItem('luna_notifications');
+    return cached ? JSON.parse(cached) : [];
+  });
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(INITIAL_REQUESTS);
   const [systemWebhookUrl, setSystemWebhookUrl] = useState<string>('');
+
+  useEffect(() => {
+    localStorage.setItem('luna_conversations', JSON.stringify(conversations));
+  }, [conversations]);
+
+  useEffect(() => {
+    localStorage.setItem('luna_notifications', JSON.stringify(notifications));
+  }, [notifications]);
 
   const [tools, setTools] = useState<Tool[]>(() => {
     const cached = localStorage.getItem('luna_tools');
@@ -625,6 +640,8 @@ const AppInner: React.FC = () => {
             toggleDarkMode={toggleDarkMode}
             onSaveTranscript={handleSaveTranscript}
             savedTranscripts={savedTranscripts}
+            notifications={notifications}
+            setNotifications={setNotifications}
           />
           
           {/* Removido o overflow-y-auto global para permitir que o Chat controle seu próprio scroll de 100% de altura */}
@@ -642,6 +659,9 @@ const AppInner: React.FC = () => {
                   onCreateRequest={handleCreateRequest}
                   resources={visibleResources}
                   setActiveResource={setActiveResource}
+                  notifications={notifications}
+                  setNotifications={setNotifications}
+                  setConversations={setConversations}
                 />
               } />
               <Route path="/resources" element={

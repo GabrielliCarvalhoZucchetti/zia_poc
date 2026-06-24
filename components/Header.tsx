@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Sun, Moon, Mic, Square, Pause, Play, Save, Sparkles, Trash2 } from 'lucide-react';
-import { User, UserRole, Resource, ResourceType } from '../types';
+import { Sun, Moon, Mic, Square, Pause, Play, Save, Sparkles, Trash2, Bell, Check } from 'lucide-react';
+import { User, UserRole, Resource, ResourceType, Notification } from '../types';
 import { Icons } from '../constants';
 
 interface HeaderProps {
@@ -15,6 +15,8 @@ interface HeaderProps {
   toggleDarkMode?: () => void;
   onSaveTranscript?: (title: string, content: string, duration: string) => void;
   savedTranscripts?: any[];
+  notifications?: Notification[];
+  setNotifications?: React.Dispatch<React.SetStateAction<Notification[]>>;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -27,10 +29,34 @@ const Header: React.FC<HeaderProps> = ({
   isDarkMode = false,
   toggleDarkMode,
   onSaveTranscript,
-  savedTranscripts = []
+  savedTranscripts = [],
+  notifications = [],
+  setNotifications
 }) => {
   const [showResourceMenu, setShowResourceMenu] = React.useState(false);
   const [showMarketMenu, setShowMarketMenu] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
+
+  const unreadNotifications = notifications.filter(n => !n.read);
+  const unreadCount = unreadNotifications.length;
+
+  const handleMarkAsRead = (id: string) => {
+    if (setNotifications) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    if (setNotifications) {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  };
+
+  const handleClearAll = () => {
+    if (setNotifications) {
+      setNotifications([]);
+    }
+  };
 
   // Recording states
   const [recordingState, setRecordingState] = React.useState<'idle' | 'recording' | 'paused'>('idle');
@@ -343,6 +369,92 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
                   Descartar
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* --- SINO DE NOTIFICAÇÕES (ATIVO) --- */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all border border-transparent flex items-center justify-center cursor-pointer relative"
+            title="Notificações de Agentes Ativos"
+            id="notification-bell-btn"
+          >
+            <Bell className="w-5 h-5 text-slate-500" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-600 text-white text-[9px] font-black items-center justify-center leading-none">
+                  {unreadCount}
+                </span>
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown de Notificações */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-2.5 w-80 bg-white border border-slate-150 rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col max-h-96 animate-in fade-in-50 duration-150">
+              <div className="p-3.5 bg-slate-50 border-b border-slate-150 flex items-center justify-between select-none">
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+                  <span>🔔</span>
+                  <span>Mensagens Ativas</span>
+                </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="text-[9px] font-extrabold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-y-auto divide-y divide-slate-100 flex-1 max-h-64">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 italic">
+                    Nenhuma notificação ativa de agentes.
+                  </div>
+                ) : (
+                  notifications.map(n => (
+                    <div 
+                      key={n.id} 
+                      onClick={() => handleMarkAsRead(n.id)}
+                      className={`p-3.5 text-left transition-all cursor-pointer relative ${
+                        !n.read 
+                          ? 'bg-indigo-50/40 hover:bg-indigo-50/60 border-l-2 border-indigo-500' 
+                          : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider block bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                          {n.agentName}
+                        </span>
+                        <span className="text-[8px] text-slate-450 font-medium">
+                          {n.timestamp}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800 mt-1.5 leading-tight">
+                        {n.title}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                        {n.description}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {notifications.length > 0 && (
+                <div className="p-2.5 bg-slate-50 border-t border-slate-150 text-center">
+                  <button
+                    onClick={handleClearAll}
+                    className="text-[9px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    Limpar histórico de notificações
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

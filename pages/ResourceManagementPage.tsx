@@ -235,6 +235,15 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
               <tr key={res.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="text-sm font-bold text-slate-800">{res.name}</div>
+                  {res.schedulerEnabled && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="text-[9px] bg-indigo-50 border border-indigo-150 text-indigo-700 font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm" title={`Executando de forma periódica: ${res.schedulerPeriodicity}`}>
+                        <span>🕒 Agendador:</span>
+                        <span className="uppercase">{res.schedulerPeriodicity}</span>
+                        <span>({res.schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt'})</span>
+                      </span>
+                    </div>
+                  )}
                   {res.id === 'luna-secretario' && (
                     <div className="mt-1">
                       <button 
