@@ -128,6 +128,8 @@ export interface Message {
   timestamp: string;
   agentId?: string;
   attachments?: Attachment[];
+  reasoning?: string;
+  reasoningSteps?: string[];
 }
 
 export interface Conversation {

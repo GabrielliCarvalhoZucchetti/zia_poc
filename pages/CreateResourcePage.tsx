@@ -519,21 +519,6 @@ Aqui está o texto do usuário:
         alert("Por favor, defina a periodicidade do Agendador.");
         return;
       }
-      if (schedulerTriggerType === 'tool') {
-        if (!schedulerTriggerToolId) {
-          alert("Por favor, selecione uma Tool válida para o gatilho Via Tool.");
-          return;
-        }
-        if (!linkedToolIds.includes(schedulerTriggerToolId)) {
-          alert("A Tool selecionada para o Agendador precisa estar vinculada a este Agente.");
-          return;
-        }
-      } else if (schedulerTriggerType === 'prompt') {
-        if (!schedulerTriggerPrompt.trim()) {
-          alert("Por favor, preencha o campo de texto livre do Prompt Auxiliar, que é obrigatório para salvar.");
-          return;
-        }
-      }
     }
 
     const finalName = createType === ResourceType.SKILL 
@@ -577,10 +562,7 @@ Aqui está o texto do usuário:
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
         schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
-        schedulerTriggerType: createType === ResourceType.AGENT && schedulerEnabled ? schedulerTriggerType : undefined,
-        schedulerTriggerToolId: createType === ResourceType.AGENT && schedulerEnabled && schedulerTriggerType === 'tool' ? schedulerTriggerToolId : undefined,
-        schedulerTriggerPrompt: createType === ResourceType.AGENT && schedulerEnabled && schedulerTriggerType === 'prompt' ? schedulerTriggerPrompt : undefined
+        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined
       });
     } else {
       onCreateResource({
@@ -599,10 +581,7 @@ Aqui está o texto do usuário:
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
         schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
-        schedulerTriggerType: createType === ResourceType.AGENT && schedulerEnabled ? schedulerTriggerType : undefined,
-        schedulerTriggerToolId: createType === ResourceType.AGENT && schedulerEnabled && schedulerTriggerType === 'tool' ? schedulerTriggerToolId : undefined,
-        schedulerTriggerPrompt: createType === ResourceType.AGENT && schedulerEnabled && schedulerTriggerType === 'prompt' ? schedulerTriggerPrompt : undefined
+        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined
       });
     }
     navigate('/resources');
@@ -1896,7 +1875,7 @@ REQUISITOS OPERACIONAIS:
                     <div className="flex items-center gap-3">
                       {schedulerEnabled && (
                         <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
-                          {schedulerPeriodicity} ({schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt'})
+                          {schedulerPeriodicity}
                         </span>
                       )}
                       <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isSchedulerExpanded ? 'rotate-180' : ''}`} />
@@ -1928,7 +1907,7 @@ REQUISITOS OPERACIONAIS:
                         <div className="space-y-6 animate-in fade-in duration-200">
                           
                           {/* RF02 - Periodicidade */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 gap-6">
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                                 <span>Periodicidade de Execução</span>
@@ -1972,136 +1951,6 @@ REQUISITOS OPERACIONAIS:
                                 />
                               </div>
                             </div>
-
-                            {/* RF03 - Tipo de Gatilho */}
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                <span>Gatilho de Disparo</span>
-                                <span className="text-rose-500 font-bold">*</span>
-                              </label>
-                              <p className="text-[11px] text-slate-455 leading-relaxed font-medium">Escolha como o ciclo de reasoning será inicializado no horário programado.</p>
-                              
-                              <div className="flex gap-4 mt-3">
-                                <label className="flex-1 flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer select-none">
-                                  <div className="flex items-center gap-3">
-                                    <input
-                                      type="radio"
-                                      id="trigger-type-prompt"
-                                      name="schedulerTriggerType"
-                                      value="prompt"
-                                      checked={schedulerTriggerType === 'prompt'}
-                                      onChange={() => setSchedulerTriggerType('prompt')}
-                                      className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                    />
-                                    <div className="text-left">
-                                      <span className="text-xs font-bold text-slate-750 block">Via Prompt auxiliar</span>
-                                      <span className="text-[10px] text-slate-400 font-semibold block">Texto livre customizado</span>
-                                    </div>
-                                  </div>
-                                </label>
-
-                                <label className="flex-1 flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer select-none">
-                                  <div className="flex items-center gap-3">
-                                    <input
-                                      type="radio"
-                                      id="trigger-type-tool"
-                                      name="schedulerTriggerType"
-                                      value="tool"
-                                      checked={schedulerTriggerType === 'tool'}
-                                      onChange={() => setSchedulerTriggerType('tool')}
-                                      className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                    />
-                                    <div className="text-left">
-                                      <span className="text-xs font-bold text-slate-755 block">Via Tool</span>
-                                      <span className="text-[10px] text-slate-400 font-semibold block">Invocação de tool vinculada</span>
-                                    </div>
-                                  </div>
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="border-t border-slate-100 pt-4">
-                            {/* RF04 - Gatilho via Tool */}
-                            {schedulerTriggerType === 'tool' && (() => {
-                              const linkedTools = tools.filter(t => linkedToolIds.includes(t.id));
-                              return (
-                                <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
-                                  <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                                    <span>Selecionar Tool de Entrada</span>
-                                    <span className="text-rose-500 font-bold">*</span>
-                                  </label>
-                                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                                    A cada execução agendada, o runtime rodará esta tool automaticamente e injetará seu resultado como dado de entrada para o reasoning do agente.
-                                  </p>
-
-                                  {linkedTools.length === 0 ? (
-                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-medium space-y-1">
-                                      <div className="font-bold flex items-center gap-1.5">
-                                        <span>⚠️ Nenhuma Tool Vinculada ao Agente</span>
-                                      </div>
-                                      <p className="text-[11px] text-amber-700 leading-relaxed font-semibold">
-                                        Você precisa cadastrar e vincular pelo menos uma Tool ao agente (na seção acima "Definições de Tools") antes de poder configurar o gatilho Via Tool.
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-3">
-                                      <select
-                                        id="scheduler-tool-select"
-                                        value={schedulerTriggerToolId}
-                                        onChange={(e) => setSchedulerTriggerToolId(e.target.value)}
-                                        className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-250 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                      >
-                                        <option value="">-- Escolher Tool Vinculada --</option>
-                                        {linkedTools.map(t => (
-                                          <option key={t.id} value={t.id}>
-                                            {t.name} ({t.type === ToolType.HTTP ? 'HTTP' : 'MCP'})
-                                          </option>
-                                        ))}
-                                      </select>
-                                      
-                                      {schedulerTriggerToolId ? (() => {
-                                        const selectedTool = linkedTools.find(t => t.id === schedulerTriggerToolId);
-                                        if (!selectedTool) return null;
-                                        return (
-                                          <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-black tracking-widest text-indigo-600 uppercase">Tool Selecionada</span>
-                                            <span className="text-xs font-bold text-slate-850">{selectedTool.name}</span>
-                                            <p className="text-[11px] text-slate-500 font-medium leading-normal">{selectedTool.description}</p>
-                                          </div>
-                                        );
-                                      })() : (
-                                        <p className="text-[11px] text-rose-500 font-bold">Atenção: Selecione uma tool válida para salvar.</p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-
-                            {/* RF05 - Gatilho via Prompt auxiliar */}
-                            {schedulerTriggerType === 'prompt' && (
-                              <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
-                                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                                  <span>Prompt Auxiliar de Execução</span>
-                                  <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                                  Informe o texto ou instrução livre que será enviada para iniciar a cadeia de reasoning do agente autonomamente.
-                                </p>
-                                <textarea
-                                  id="scheduler-prompt-textarea"
-                                  value={schedulerTriggerPrompt}
-                                  onChange={(e) => setSchedulerTriggerPrompt(e.target.value)}
-                                  placeholder="Ex: Colete os leads qualificados de hoje no CRM, cruze com as metas do mês, analise as discrepâncias e notifique o canal de vendas."
-                                  rows={4}
-                                  className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-250 px-4 py-3 rounded-2xl focus:outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed placeholder:text-slate-400"
-                                />
-                                {!schedulerTriggerPrompt.trim() && (
-                                  <p className="text-[11px] text-rose-500 font-bold">Atenção: O prompt auxiliar é obrigatório para salvar o agendamento.</p>
-                                )}
-                              </div>
-                            )}
                           </div>
 
                         </div>

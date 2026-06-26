@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import { User, Resource, Message, Conversation, UserRole, AgentType, Attachment, ResourceType, ResourceEnvironment, Tool, ToolType, Notification } from '../types';
 import { Icons, canUserAccessResource } from '../constants';
 import { generateAgentResponse } from '../services/geminiService';
@@ -32,6 +33,9 @@ const ChatPage: React.FC<ChatPageProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentReasoningStep, setCurrentReasoningStep] = useState<string>('Thinking');
+  const [reasoningStepsHistory, setReasoningStepsHistory] = useState<string[]>(['Thinking']);
+  const [expandedReasoning, setExpandedReasoning] = useState<Record<string, boolean>>({});
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
@@ -109,14 +113,12 @@ const ChatPage: React.FC<ChatPageProps> = ({
     }
 
     setSchedulerSimulating(true);
-    setSchedulerOutput('');
-    
-    const steps: { label: string; status: 'pending' | 'loading' | 'success' }[] = [
+    setSchedulerOutput('');    const steps: { label: string; status: 'pending' | 'loading' | 'success' }[] = [
       { label: 'Iniciando ciclo de agendamento autônomo', status: 'loading' },
-      { label: `Carregando gatilho: ${activeResource.schedulerTriggerType === 'tool' ? 'Invocação de Tool' : 'Prompt auxiliar'}`, status: 'pending' },
-      { label: 'Injetando no system prompt do reasoning', status: 'pending' },
-      { label: 'Processando reasoning (system prompt + RAG + tools)', status: 'pending' },
-      { label: 'Gerando output e publicando no Playground', status: 'pending' }
+      { label: 'Sincronizando com base de conhecimento RAG', status: 'pending' },
+      { label: 'Mapeando diretrizes do sistema e tools habilitadas', status: 'pending' },
+      { label: 'Executando raciocínio lógico (reasoning) do agente', status: 'pending' },
+      { label: 'Gerando output autônomo e publicando no Playground', status: 'pending' }
     ];
     setSchedulerSimSteps([...steps]);
 
@@ -126,21 +128,13 @@ const ChatPage: React.FC<ChatPageProps> = ({
     steps[1].status = 'loading';
     setSchedulerSimSteps([...steps]);
 
-    // Passo 2: Gatilho
+    // Passo 2: Sincronizando com base RAG
     await new Promise(r => setTimeout(r, 1500));
-    let triggerData = '';
-    if (activeResource.schedulerTriggerType === 'tool') {
-      const tool = localToolsList.find(t => t.id === activeResource.schedulerTriggerToolId) || localToolsList[0];
-      triggerData = `[Invocação automática de Tool: ${tool?.name || 'fetchCustomerCRM'}] Retorno da API: {"clienteId": "1002", "status_faturamento": "ativo", "limite_mcp": "Zucchetti Prime", "pendencias_financeiras": []}`;
-    } else {
-      triggerData = activeResource.schedulerTriggerPrompt || 'Verificar novas atualizações.';
-    }
     steps[1].status = 'success';
-    steps[1].label += ` - Resolvido: "${triggerData.substring(0, 45)}..."`;
     steps[2].status = 'loading';
     setSchedulerSimSteps([...steps]);
 
-    // Passo 3: Injeção de contexto
+    // Passo 3: Mapeando diretrizes
     await new Promise(r => setTimeout(r, 1200));
     steps[2].status = 'success';
     steps[3].status = 'loading';
@@ -148,7 +142,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
 
     // Passo 4: Chamada à IA
     await new Promise(r => setTimeout(r, 2000));
-    let promptToSend = `[EXECUTADO VIA AGENDADOR PERIÓDICO AUTÔNOMO]\nSystem instructions complementares: O usuário não está online para interagir. Execute as ações de forma totalmente autônoma baseado no seguinte dado de gatilho de entrada:\n"${triggerData}"\n\nPor favor, retorne sua resposta/ação consolidada.`;
+    let promptToSend = `[EXECUTADO VIA AGENDADOR PERIÓDICO AUTÔNOMO]\nSystem instructions complementares: O usuário não está online para interagir. Execute as ações de forma totalmente autônoma e produza o relatório/relato de acompanhamento periódico.\n\nPor favor, retorne sua resposta/ação consolidada.`;
     
     const systemInstruction = activeResource.prompt || '';
     const history = conversations.find(c => c.id === currentConvId)?.messages || [];
@@ -158,7 +152,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
       aiResponse = await generateAgentResponse(promptToSend, history, systemInstruction);
     } catch (err) {
       console.error(err);
-      aiResponse = `[Ação Autônoma do Agente]: Com base no gatilho "${triggerData}", analisei os dados da organização e encaminhei as atualizações consolidadas para os setores devidos.`;
+      aiResponse = `[Ação Autônoma do Agente]: Realizei a análise dos dados do sistema e tomei as ações cabíveis baseadas nas instruções do agente de forma autônoma.`;
     }
 
     steps[3].status = 'success';
@@ -171,7 +165,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
     const triggerMsg: Message = {
       id: `m-sch-trig-${Date.now()}`,
       role: 'user',
-      content: `🕒 [AGENDADOR - EXECUÇÃO AUTÔNOMA]\nFrequência de disparo: ${activeResource.schedulerPeriodicity}\nGatilho: ${activeResource.schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt auxiliar'}\nDado injetado: "${triggerData}"`,
+      content: `🕒 [AGENDADOR - EXECUÇÃO AUTÔNOMA]\nFrequência de disparo: ${activeResource.schedulerPeriodicity}\nStatus: Execução autônoma periódica acionada`,
       timestamp: new Date().toLocaleTimeString(),
       agentId: activeResource.id
     };
@@ -254,7 +248,9 @@ const ChatPage: React.FC<ChatPageProps> = ({
                   role: 'assistant',
                   content: "Olá Gabrielli! Como secretário executivo, acabei de processar e vetorizar no RAG a última gravação da reunião de IA. Identifiquei 3 metas táticas importantes atribuídas a você:\n\n1. **Ajuste de Modelos**: Testar prompts com o Gemini 2.5 Pro no playground.\n2. **Validação de CNPJ**: Sincronizar o validador com a API nacional até sexta-feira.\n3. **Relatório de Produtividade**: Compilar métricas do NPS.\n\nDeseja que eu elabore um plano de ação para alguma destas tarefas?",
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  agentId: "luna-secretario"
+                  agentId: "luna-secretario",
+                  reasoning: "Processou áudios e cruzou com base RAG",
+                  reasoningSteps: ["Thinking", "Processou áudio gravado da reunião de IA", "Cruzou referências e metas com base RAG"]
                 }
               ]
             };
@@ -276,7 +272,9 @@ const ChatPage: React.FC<ChatPageProps> = ({
                   role: 'assistant',
                   content: "⚠️ **[ALERTA DE AUDITORIA DE SISTEMA]**\n\nDetectei múltiplos acessos de IPs externos não autorizados tentando efetuar chamadas na API `fetchCustomerCRM`. \n\n- **Ação Recomendada**: Revogar a chave temporária ou ativar autenticação de duplo fator para o gateway de API.\n- **Severidade**: Alta\n- **Timestamp**: " + new Date().toLocaleString() + "\n\nDeseja realizar o bloqueio automático via MCP ou investigar os detalhes do log?",
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  agentId: "r4"
+                  agentId: "r4",
+                  reasoning: "Analisou anomalias em logs de transação da API CRM",
+                  reasoningSteps: ["Thinking", "Monitorando endpoints críticos", "Analisou anomalias em logs de transação da API CRM"]
                 }
               ]
             };
@@ -492,119 +490,156 @@ const ChatPage: React.FC<ChatPageProps> = ({
     const lowerText = textToSend.toLowerCase();
     const isOiPaper = lowerText.includes('oi') && (lowerText.includes('paper') || lowerText.includes('gera') || lowerText.includes('gerar'));
 
-    let aiResponseContent = '';
-
-    if (isOiPaper) {
-      // Retorna uma payload JSON mágica contendo a estrutura da simulação
-      const scientificPaperData = {
-        isMockSimulation: true,
-        simulationType: 'scientific_paper',
-        steps: [
-          { id: 1, name: "Ativação da Skill: 'Gerador de Paper de IA'", status: "success", info: "Carregando framework e regras de formatação de artigos" },
-          { id: 2, name: "Invocação da Tool MCP: 'searchAcademicArticles'", status: "success", info: "Chamada via servidor SSE corporativo (http://mcp.zucchetti.internal:9050)" },
-          { id: 3, name: "Execução de Skill de Orquestração: 'Sintetizador Acadêmico'", status: "success", info: "Processando as fontes e referências bibliográficas obtidas" },
-          { id: 4, name: "Invocação da Tool HTTP: 'fetchCustomerCRM'", status: "success", info: "Integração contra API ERP/CRM (Zucchetti Inovação S/A, ID: 1002)" },
-          { id: 5, name: "Geração da estrutura científica do documento científico", status: "success", info: "Exportando para formato acadêmico indexável nos padrões internacionais" }
-        ],
-        paper: {
-          title: "A ORQUESTRAÇÃO DE ACIONAMENTOS DE SKILLS E MODEL CONTEXT PROTOCOL (MCP) NOS SISTEMAS DE GESTÃO EMPRESARIAL DO AMANHÃ",
-          authors: "Gabrielli Carvalho Marques, Kristofer Pinheiro, AI Research Zucchetti S.A.",
-          abstract: "Este artigo acadêmico investiga a integração prática de barramentos de Inteligência Artificial por meio de APIs locais e da especificação Model Context Protocol (MCP). Apresentamos uma arquitetura robusta na qual os agentes inteligentes não apenas interpretam a linguagem de forma passiva, mas orquestram de forma proativa chamadas a softwares legados (ERPs, CRMs) e a ambientes externos assíncronos. Por fim, valida-se o modelo propondo um design de barramento robusto dotado de aprovações em múltiplos níveis para processos de gravação.",
-          sections: [
-            {
-              title: "1. Introdução",
-              content: "O paradigma atual do desenvolvimento de software corporativo está passando por uma disrupção sem precedentes. Anteriormente limitados a tomadas de decisão simples coordenadas por fluxogramas restritos, os sistemas de gestão empresarial (ERP) agora necessitam de adaptabilidade cognitiva imediata. O advento das arquiteturas Multi-Agentes de IA e do Model Context Protocol (MCP) da Anthropic estabeleceu um novo padrão aberto no qual LLMs interagem de modo seguro com bancos de dados relacionais e APIs externas sem requerer re-acoplamentos complexos."
-            },
-            {
-              title: "2. Arquitetura Proposta: Agentes Coordenados",
-              content: "Dividimos a arquitetura de orquestração em duas camadas essenciais: os Agentes de Leitura (Reading Assistants), especialistas em vetorização e recuperação aumentada de conteúdo (através de vetores RAG), e os Agentes de Escrita/Ação (Action Agent), capazes de executar chamadas de transações críticas. Através das Skills modulares, a orquestração escolhe oportunamente se deve realizar uma validação cadastral (como o Validador de CNPJ) ou notificar subsistemas parceiros através de barramentos pub/sub."
-            },
-            {
-              title: "3. Metodologia de Validação e Monitoramento",
-              content: "Nossos testes simulam o fluxo de ponta a ponta desencadeado por consultas de linguagem natural no Playground: (a) detecção semântica das intenções do usuário pela LLM; (b) verificação de credenciais e cargo hierárquico necessário; (c) despacho de queries parametrizadas via rotas HTTP ou MCP SSE; (d) compilação de resultados estruturados para fundamentar o relatório ou paper final em formato científico padronizado."
-            },
-            {
-              title: "4. Considerações Finais",
-              content: "A formalização deste novo framework de chamadas no Playground Zucchetti abre caminhos sem paralelos para a automação cognitiva de processos diários. O sucesso das chamadas testadas no assistente Luna consolida a visão de que os sistemas de ERP não serão apenas bancos de dados complexos, mas cérebros corporativos distribuídos e integrados."
-            }
-          ]
-        }
-      };
-      aiResponseContent = 'MOCK_PRESET_PAPER_DATA:' + JSON.stringify(scientificPaperData);
-      await new Promise(resolve => setTimeout(resolve, 800));
+    // Define reasoning stages
+    const steps: string[] = ['Thinking'];
+    if (lowerText.includes('como funciona')) {
+      steps.push('Orchestrating explicação geral com diagrama visual');
+      steps.push('Navegou ambiguidade contextual e optou por explicação geral');
+    } else if (isOiPaper) {
+      steps.push('Invocando ferramenta de busca e carregando regras acadêmicas');
+      steps.push('Sintetizando referências estruturadas e formatando artigo');
+    } else if (lowerText.includes('cnpj') || lowerText.includes('valida')) {
+      steps.push('Carregando validador de CNPJ e APIs da Receita');
+      steps.push('Validou parâmetros de entrada e consultou banco local');
     } else {
-      const isToolSelection = lowerText.includes('executar mcp tool:') || lowerText.includes('mcp tool-call:');
-      if (isToolSelection) {
-        let toolName = 'mcpTool';
-        let args = '{}';
-        let results = '{"status": "success"}';
+      steps.push('Analisando contexto semântico e processando diretrizes');
+      steps.push('Formulou raciocínio lógico e estruturou resposta final');
+    }
 
-        if (textToSend.includes('[TOOL]')) {
-          const parts = textToSend.split(/\[TOOL\]/i);
-          if (parts[1]) {
-            const splitted = parts[1].split(/\[ARGS\]/i);
-            toolName = splitted[0].trim();
-            if (splitted[1]) {
-              const resParts = splitted[1].split(/\[RES\]/i);
-              args = resParts[0].trim();
-              if (resParts[1]) {
-                results = resParts[1].trim();
+    // Initialize thinking steps
+    setCurrentReasoningStep(steps[0]);
+    setReasoningStepsHistory([steps[0]]);
+
+    // Launch API request in parallel
+    const apiPromise = (async () => {
+      if (isOiPaper) {
+        // Retorna uma payload JSON mágica contendo a estrutura da simulação
+        const scientificPaperData = {
+          isMockSimulation: true,
+          simulationType: 'scientific_paper',
+          steps: [
+            { id: 1, name: "Ativação da Skill: 'Gerador de Paper de IA'", status: "success", info: "Carregando framework e regras de formatação de artigos" },
+            { id: 2, name: "Invocação da Tool MCP: 'searchAcademicArticles'", status: "success", info: "Chamada via servidor SSE corporativo (http://mcp.zucchetti.internal:9050)" },
+            { id: 3, name: "Execução de Skill de Orquestração: 'Sintetizador Acadêmico'", status: "success", info: "Processando as fontes e referências bibliográficas obtidas" },
+            { id: 4, name: "Invocação da Tool HTTP: 'fetchCustomerCRM'", status: "success", info: "Integração contra API ERP/CRM (Zucchetti Inovação S/A, ID: 1002)" },
+            { id: 5, name: "Geração da estrutura científica do documento científico", status: "success", info: "Exportando para formato acadêmico indexável nos padrões internacionais" }
+          ],
+          paper: {
+            title: "A ORQUESTRAÇÃO DE ACIONAMENTOS DE SKILLS E MODEL CONTEXT PROTOCOL (MCP) NOS SISTEMAS DE GESTÃO EMPRESARIAL DO AMANHÃ",
+            authors: "Gabrielli Carvalho Marques, Kristofer Pinheiro, AI Research Zucchetti S.A.",
+            abstract: "Este artigo acadêmico investiga a integração prática de barramentos de Inteligência Artificial por meio de APIs locais e da especificação Model Context Protocol (MCP). Apresentamos uma arquitetura robusta na qual os agentes inteligentes não apenas interpretam a linguagem de forma passiva, mas orquestram de forma proativa chamadas a softwares legados (ERPs, CRMs) e a ambientes externos assíncronos. Por fim, valida-se o modelo propondo um design de barramento robusto dotado de aprovações em múltiplos níveis para processos de gravação.",
+            sections: [
+              {
+                title: "1. Introdução",
+                content: "O paradigma atual do desenvolvimento de software corporativo está passando por uma disrupção sem precedentes. Anteriormente limitados a tomadas de decisão simples coordenadas por fluxogramas restritos, os sistemas de gestão empresarial (ERP) agora necessitam de adaptabilidade cognitiva imediata. O advento das arquiteturas Multi-Agentes de IA e do Model Context Protocol (MCP) da Anthropic estabeleceu um novo padrão aberto no qual LLMs interagem de modo seguro com bancos de dados relacionais e APIs externas sem requerer re-acoplamentos complexos."
+              },
+              {
+                title: "2. Arquitetura Proposta: Agentes Coordenados",
+                content: "Dividimos a arquitetura de orquestração em duas camadas essenciais: os Agentes de Leitura (Reading Assistants), especialistas em vetorização e recuperação aumentada de conteúdo (através de vetores RAG), e os Agentes de Escrita/Ação (Action Agent), capazes de executar chamadas de transações críticas. Através das Skills modulares, a orquestração escolhe oportunamente se deve realizar uma validação cadastral (como o Validador de CNPJ) ou notificar subsistemas parceiros através de barramentos pub/sub."
+              },
+              {
+                title: "3. Metodologia de Validação e Monitoramento",
+                content: "Nossos testes simulam o fluxo de ponta a ponta desencadeado por consultas de linguagem natural no Playground: (a) detecção semântica das intenções do usuário pela LLM; (b) verificação de credenciais e cargo hierárquico necessário; (c) despacho de queries parametrizadas via rotas HTTP ou MCP SSE; (d) compilação de resultados estruturados para fundamentar o relatório ou paper final em formato científico padronizado."
+              },
+              {
+                title: "4. Considerações Finais",
+                content: "A formalização deste novo framework de chamadas no Playground Zucchetti abre caminhos sem paralelos para a automação cognitiva de processos diários. O sucesso das chamadas testadas no assistente Luna consolida a visão de que os sistemas de ERP não serão apenas bancos de dados complexos, mas cérebros corporativos distribuídos e integrados."
+              }
+            ]
+          }
+        };
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return 'MOCK_PRESET_PAPER_DATA:' + JSON.stringify(scientificPaperData);
+      } else {
+        const isToolSelection = lowerText.includes('executar mcp tool:') || lowerText.includes('mcp tool-call:');
+        if (isToolSelection) {
+          let toolName = 'mcpTool';
+          let args = '{}';
+          let results = '{"status": "success"}';
+
+          if (textToSend.includes('[TOOL]')) {
+            const parts = textToSend.split(/\[TOOL\]/i);
+            if (parts[1]) {
+              const splitted = parts[1].split(/\[ARGS\]/i);
+              toolName = splitted[0].trim();
+              if (splitted[1]) {
+                const resParts = splitted[1].split(/\[RES\]/i);
+                args = resParts[0].trim();
+                if (resParts[1]) {
+                  results = resParts[1].trim();
+                }
               }
             }
           }
-        }
 
-        const toolData = {
-          isMockSimulation: true,
-          simulationType: 'tool_call',
-          toolName: toolName,
-          args: args,
-          results: results
-        };
-        aiResponseContent = 'MOCK_PRESET_TOOL_DATA:' + JSON.stringify(toolData);
-        await new Promise(resolve => setTimeout(resolve, 700));
-      } else {
-        const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
-        const systemInstruction = activeResource.type === ResourceType.MARKET_MODEL 
-          ? `Você é o modelo ${activeResource.name}. Responda de forma precisa e útil, mantendo a identidade deste modelo específico. ${activeResource.prompt || ''}`
-          : activeResource.prompt;
+          const toolData = {
+            isMockSimulation: true,
+            simulationType: 'tool_call',
+            toolName: toolName,
+            args: args,
+            results: results
+          };
+          await new Promise(resolve => setTimeout(resolve, 300));
+          return 'MOCK_PRESET_TOOL_DATA:' + JSON.stringify(toolData);
+        } else {
+          const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
+          const systemInstruction = activeResource.type === ResourceType.MARKET_MODEL 
+            ? `Você é o modelo ${activeResource.name}. Responda de forma precisa e útil, mantendo a identidade deste modelo específico. ${activeResource.prompt || ''}`
+            : activeResource.prompt;
 
-        aiResponseContent = activeResource.webhookUrl 
-          ? await (async () => {
-              try {
-                const response = await fetch(activeResource.webhookUrl!, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    message: textToSend,
-                    user: { id: user.id, name: user.name, role: user.role },
-                    resource: { id: activeResource.id, name: activeResource.name },
-                    history: history,
-                    attachments: userMsg.attachments
-                  })
-                });
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  return data.response || data.output || data.message || data.text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-                } else {
-                  return `⚠️ Erro no Webhook (${response.status}): Não foi possível processar a solicitação externamente.`;
+          return activeResource.webhookUrl 
+            ? await (async () => {
+                try {
+                  const response = await fetch(activeResource.webhookUrl!, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      message: textToSend,
+                      user: { id: user.id, name: user.name, role: user.role },
+                      resource: { id: activeResource.id, name: activeResource.name },
+                      history: history,
+                      attachments: userMsg.attachments
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    return data.response || data.output || data.message || data.text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+                  } else {
+                    return `⚠️ Erro no Webhook (${response.status}): Não foi possível processar a solicitação externamente.`;
+                  }
+                } catch (error) {
+                  console.error("Webhook error:", error);
+                  return "❌ Falha na conexão com o Webhook externo. Verifique se a URL está correta e se o serviço (n8n, Lovable, etc.) está aceitando requisições.";
                 }
-              } catch (error) {
-                console.error("Webhook error:", error);
-                return "❌ Falha na conexão com o Webhook externo. Verifique se a URL está correta e se o serviço (n8n, Lovable, etc.) está aceitando requisições.";
-              }
-            })()
-          : await generateAgentResponse(textToSend, history, systemInstruction);
+              })()
+            : await generateAgentResponse(textToSend, history, systemInstruction);
+        }
       }
-    }
+    })();
+
+    // Run reasoning stepper in parallel to give user a polished feeling of active agent thoughts
+    await new Promise(resolve => setTimeout(resolve, 800));
+    setCurrentReasoningStep(steps[1]);
+    setReasoningStepsHistory([steps[0], steps[1]]);
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setCurrentReasoningStep(steps[2]);
+    setReasoningStepsHistory([steps[0], steps[1], steps[2]]);
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Wait for actual API response
+    const aiResponseContent = await apiPromise;
 
     const botMsg: Message = {
       id: `m-a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'assistant',
       content: aiResponseContent,
       timestamp: new Date().toLocaleTimeString(),
-      agentId: activeResource.id
+      agentId: activeResource.id,
+      reasoning: steps[2],
+      reasoningSteps: steps
     };
 
     onAddMessage(currentConvId, botMsg);
@@ -946,6 +981,41 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         <div className="text-[10px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-widest flex items-center gap-2 select-none">
                           {msg.role === 'user' ? 'Você' : activeResource.name}
                         </div>
+                        
+                        {msg.role === 'assistant' && msg.reasoning && (
+                          <div className="my-1.5 text-slate-400 dark:text-slate-500">
+                            <button
+                              onClick={() => setExpandedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
+                              className="flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer select-none text-[11px] font-medium italic border border-slate-100/60 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/30 px-2.5 py-1 rounded-xl"
+                            >
+                              {expandedReasoning[msg.id] ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-450 shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-450 shrink-0" />
+                              )}
+                              <span>
+                                {msg.reasoning}
+                              </span>
+                            </button>
+                            
+                            {expandedReasoning[msg.id] && msg.reasoningSteps && (
+                              <div className="mt-2 ml-1 p-3.5 rounded-2xl bg-slate-50/75 dark:bg-slate-900/50 border border-slate-100/75 dark:border-slate-800/50 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 w-fit">
+                                <div className="font-black text-[9px] uppercase tracking-wider text-slate-400 dark:text-slate-500 select-none pb-1 border-b border-slate-100 dark:border-slate-800/50">
+                                  Processo de Raciocínio (Steps)
+                                </div>
+                                {msg.reasoningSteps.map((step, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <span className="text-indigo-500 shrink-0">✓</span>
+                                    <span className={idx === msg.reasoningSteps!.length - 1 ? "font-semibold text-slate-750 dark:text-slate-300" : ""}>
+                                      {step}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-semibold">
                           {renderMessageContent(msg)}
                         </div>
@@ -955,13 +1025,24 @@ const ChatPage: React.FC<ChatPageProps> = ({
                 ))}
 
                 {isTyping && (
-                  <div className="flex gap-6 items-start animate-pulse">
+                  <div className="flex gap-6 items-start">
                     <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
                       <Icons.Chat className="w-5 h-5" />
                     </div>
-                    <div className="flex-1 space-y-3 py-2">
-                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded w-3/4"></div>
-                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded w-1/2"></div>
+                    <div className="flex-1 py-1.5 flex items-center gap-2.5">
+                      <svg className="w-5 h-5 animate-spin text-[#0099ff] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="2" x2="12" y2="6"></line>
+                        <line x1="12" y1="18" x2="12" y2="22"></line>
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                        <line x1="2" y1="12" x2="6" y2="12"></line>
+                        <line x1="18" y1="12" x2="22" y2="12"></line>
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                      </svg>
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-450 select-none animate-pulse">
+                        {currentReasoningStep}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1206,28 +1287,6 @@ const ChatPage: React.FC<ChatPageProps> = ({
                       {activeResource.schedulerPeriodicity}
                     </span>
                   </div>
-                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                    <span>Tipo Gatilho:</span>
-                    <span className="font-semibold text-slate-500 dark:text-slate-400">
-                      {activeResource.schedulerTriggerType === 'tool' ? 'Via Tool' : 'Via Prompt auxiliar'}
-                    </span>
-                  </div>
-
-                  {activeResource.schedulerTriggerType === 'tool' ? (
-                    <div className="text-[9px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-indigo-50 dark:border-indigo-950/30 text-slate-550 dark:text-slate-400 space-y-1">
-                      <span className="font-extrabold block text-[8px] text-indigo-600 dark:text-indigo-400 uppercase">Tool Associada:</span>
-                      <span className="font-mono block truncate font-black text-slate-700 dark:text-slate-300">
-                        {localToolsList.find(t => t.id === activeResource.schedulerTriggerToolId)?.name || 'fetchCustomerCRM'}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-[9px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-indigo-50 dark:border-indigo-950/30 text-slate-550 dark:text-slate-400 space-y-1">
-                      <span className="font-extrabold block text-[8px] text-indigo-600 dark:text-indigo-400 uppercase">Prompt Auxiliar:</span>
-                      <p className="line-clamp-2 italic font-semibold leading-relaxed">
-                        "{activeResource.schedulerTriggerPrompt || 'Sem prompt auxiliar'}"
-                      </p>
-                    </div>
-                  )}
 
                   {/* Terminal de simulação */}
                   {schedulerSimSteps.length > 0 && (

@@ -3,6 +3,8 @@ import { Icons } from '../constants';
 import { LevelUpAnimation } from '../components/LevelUpAnimation';
 import { StarfieldCanvas } from '../components/StarfieldCanvas';
 import { motion } from 'motion/react';
+import { HeaderAnimation } from '../components/HeaderAnimation';
+import { PremiumRankBadge } from '../components/PremiumRankBadge';
 
 const RANKING_AI_USERS = [
   { rank: '1º', name: 'Alice Castro', count: 154, type: 'INTERAÇÕES', avatar: 'https://picsum.photos/seed/alice/100/100' },
@@ -36,7 +38,12 @@ const RANKING_AI_CHAMPION = [
   { rank: '5º', name: 'Luciano Huck', count: 2, type: 'HOMOLOGADOS', avatar: 'https://picsum.photos/seed/luciano/100/100' },
 ];
 
-const HomePage: React.FC = () => {
+interface HomePageProps {
+  user?: any;
+  onUpdateUser?: (updatedUser: any) => void;
+}
+
+const HomePage: React.FC<HomePageProps> = ({ user, onUpdateUser }) => {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedNews, setSelectedNews] = useState<{ title: string; date: string; content: string; tag: string } | null>(null);
@@ -114,71 +121,11 @@ const HomePage: React.FC = () => {
         </header>
 
         {/* JOAO SILVA PROFILE HEADER CARD */}
-        <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-100 dark:border-slate-800/80 p-6 flex flex-col lg:flex-row items-center justify-between gap-6 shadow-sm">
-          <div className="flex items-center gap-5 w-full lg:w-auto">
-            <div className="relative">
-              <img 
-                src="https://picsum.photos/seed/joaosilva/150/150" 
-                alt="Joao Silva" 
-                className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-800 shadow-inner"
-              />
-              <div className="absolute -bottom-1.5 -right-1.5 bg-blue-500 text-white rounded-full p-1 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center">
-                <Icons.Check className="w-3" />
-              </div>
-            </div>
-            <div className="space-y-1.5 flex-1">
-              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Joao Silva</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-block px-3 py-1 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-450 font-extrabold text-[10px] uppercase rounded-full tracking-wider border border-sky-100 dark:border-sky-900/40">
-                  AI STARTER
-                </span>
-                
-                {/* Level Up Simulator buttons */}
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase">Simular Upgrade:</span>
-                  <button
-                    type="button"
-                    onClick={() => setLevelUpState({ active: true, level: "AI User" })}
-                    className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-all"
-                  >
-                    AI User ⚡
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLevelUpState({ active: true, level: "AI Builder" })}
-                    className="px-2 py-0.5 text-[9px] font-bold bg-amber-500/10 hover:bg-amber-500/20 dark:bg-amber-500/5 dark:hover:bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded border border-amber-500/20 dark:border-amber-500/10 cursor-pointer active:scale-95 transition-all"
-                  >
-                    AI Builder 🚀
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLevelUpState({ active: true, level: "AI Champion" })}
-                    className="px-2 py-0.5 text-[9px] font-bold bg-purple-500/10 hover:bg-purple-500/20 dark:bg-purple-500/5 dark:hover:bg-purple-500/15 text-purple-600 dark:text-purple-400 rounded border border-purple-500/20 dark:border-purple-500/10 cursor-pointer active:scale-95 transition-all"
-                  >
-                    AI Champion 👑
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-            <div className="flex-1 lg:flex-none min-w-[140px] bg-slate-50/60 dark:bg-slate-950/60 border border-slate-100/60 dark:border-slate-800/60 rounded-2xl p-4 text-left">
-              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Interações Luna</div>
-              <div className="text-2xl font-black text-slate-800 dark:text-slate-105 mt-1">15</div>
-            </div>
-            
-            <div className="flex-1 lg:flex-none min-w-[140px] bg-slate-50/60 dark:bg-slate-950/60 border border-slate-100/60 dark:border-slate-800/60 rounded-2xl p-4 text-left">
-              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recursos Criados</div>
-              <div className="text-2xl font-black text-slate-800 dark:text-slate-105 mt-1">2</div>
-            </div>
-            
-            <div className="flex-1 lg:flex-none min-w-[140px] bg-slate-50/60 dark:bg-slate-950/60 border border-slate-100/60 dark:border-slate-800/60 rounded-2xl p-4 text-left">
-              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Em Produção</div>
-              <div className="text-2xl font-black text-slate-800 dark:text-slate-105 mt-1">1</div>
-            </div>
-          </div>
-        </div>
+        <HeaderAnimation 
+          setLevelUpState={setLevelUpState} 
+          user={user} 
+          onUpdateUser={onUpdateUser} 
+        />
 
         {/* PRÓXIMAS MISSÕES */}
         <section className="space-y-4">
@@ -202,22 +149,22 @@ const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             
             {/* Mission Card 1 */}
-            <div className="bg-emerald-50/20 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 rounded-[24px] p-6 flex flex-col justify-between space-y-6 relative overflow-hidden transition-all hover:shadow-sm">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-bl-[50px] flex items-center justify-center pl-6 pb-6">
+            <div className="bg-slate-50/20 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 relative overflow-hidden transition-all hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-blue-500/5 group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-bl-[50px] flex items-center justify-center pl-6 pb-6 z-10">
                 <Icons.Check className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
-                    <Icons.Audio className="w-5 h-5" />
+                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
+                    <PremiumRankBadge level="AI Starter" size={72} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-md">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-md z-10">
                     CONCLUÍDA
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200">AI Starter</h4>
+                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">AI Starter</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
                     Converse ao menos uma vez com a Luna e inicie sua jornada até ser um AI Champion
                   </p>
@@ -226,18 +173,18 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* Mission Card 2 */}
-            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-700">
+            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-sky-400/50 dark:hover:border-sky-500/40 hover:shadow-sky-500/5 group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 bg-sky-50 dark:bg-sky-950/30 rounded-xl flex items-center justify-center text-sky-600 dark:text-sky-450 border border-sky-100 dark:border-sky-900/40">
-                    <Icons.Send className="w-5 h-5" />
+                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
+                    <PremiumRankBadge level="AI User" size={72} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400 bg-sky-555 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-0.5 rounded-md border border-sky-100 dark:border-sky-900/40">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-0.5 rounded-md border border-sky-100 dark:border-sky-900/40">
                     ATUAL
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200">AI User</h4>
+                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200 group-hover:text-sky-500 dark:group-hover:text-sky-450 transition-colors">AI User</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
                     Alcance mais de 10 interações com a Luna e se torne um AI User
                   </p>
@@ -246,18 +193,18 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* Mission Card 3 */}
-            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 opacity-85">
+            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-purple-400/50 dark:hover:border-purple-500/40 hover:shadow-purple-500/5 group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500">
-                    <Icons.AgentBuilder className="w-5 h-5" />
+                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
+                    <PremiumRankBadge level="AI Builder" size={72} />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-md">
                     PRÓXIMA
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350">AI Builder</h4>
+                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors">AI Builder</h4>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed mt-2">
                     Crie um assistente ou agente de IA via Gestão de Recursos e se torne um AI Builder
                   </p>
@@ -266,18 +213,18 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* Mission Card 4 */}
-            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 opacity-85">
+            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-amber-400/50 dark:hover:border-amber-500/40 hover:shadow-amber-500/5 group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 bg-slate-105 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500">
-                    <Icons.Lab className="w-5 h-5" />
+                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
+                    <PremiumRankBadge level="AI Champion" size={72} />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-md">
                     PRÓXIMA
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350">AI Champion</h4>
+                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350 group-hover:text-amber-500 dark:group-hover:text-amber-450 transition-colors">AI Champion</h4>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed mt-2">
                     Tenha ao menos um recurso de IA homologado pelo time de Innovation & Research e se torne um AI Champion
                   </p>

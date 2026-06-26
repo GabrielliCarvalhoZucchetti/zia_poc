@@ -648,7 +648,15 @@ const AppInner: React.FC = () => {
           <main className="flex-1 flex flex-col overflow-hidden">
             <Routes>
               <Route path="/" element={<Navigate to="/home" replace />} />
-              <Route path="/home" element={<HomePage />} />
+              <Route path="/home" element={
+                <HomePage 
+                  user={user} 
+                  onUpdateUser={(updatedUser) => {
+                    setUser(updatedUser);
+                    localStorage.setItem('luna_user', JSON.stringify(updatedUser));
+                  }} 
+                />
+              } />
               <Route path="/chat" element={
                 <ChatPage 
                   user={user} 

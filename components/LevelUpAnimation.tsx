@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Icons } from '../constants';
+import { PremiumRankBadge } from './PremiumRankBadge';
 
 // ==========================================
 // CENTRAL TIMING CONSTANTS (Adjust rhythm here)
@@ -583,6 +584,16 @@ export const LevelUpAnimation: React.FC<LevelUpAnimationProps> = ({ newLevel, on
             >
               PARABÉNS! NOVO NÍVEL ALCANÇADO
             </motion.span>
+
+            {/* Premium Rank Badge */}
+            <motion.div
+              initial={{ scale: 0.3, opacity: 0, rotate: -45 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ delay: 0.4, type: "spring", stiffness: 100, damping: 12 }}
+              className="my-2 relative flex items-center justify-center"
+            >
+              <PremiumRankBadge level={newLevel} size={160} />
+            </motion.div>
 
             {/* Display status label with golden/ice white text gradient */}
             <motion.h2
