@@ -112,6 +112,38 @@ const parseInferredBlocks = (text: string): TextBlock[] => {
   return blocks;
 };
 
+const DEFAULT_AGENT_PROMPT_TEMPLATE = `# IDENTIDADE
+Você é [nome], especialista em [domínio].
+
+# OBJETIVO
+[Descrição clara do que o agente entrega ao usuário.]
+
+# TOOLS E QUANDO USAR
+- Instrua quando acionar cada tool.
+- Diga se o agente chama direto ou via Skill.
+- [tool_a]: use quando precisar de [condição A]
+- [tool_b]: use com output de [tool_a] para [condição B]
+- [skill_artefato]: use para gerar o arquivo final
+
+# SUBAGENTES DISPONÍVEIS
+- Liste filhos e quando delegar para cada um.
+- [subagente_x]: delegar quando [responsabilidade X]
+
+# CRITÉRIO DE PARADA
+- Defina o que "objetivo atingido" significa.
+- O agente SÓ responde quando todos forem satisfeitos.
+1. [dado X] confirmado com confidence ≥ 0.8
+2. [dado Y] validado
+3. Artefato gerado pela [skill_artefato]
+Se qualquer critério não for atingido, itere novamente.
+
+# FORMATO DE SAÍDA
+[Estrutura esperada da resposta final.]
+
+# RESTRIÇÕES
+[O que o agente não deve fazer.]
+[Ações que exigem confirmação do usuário.]`;
+
 interface CreateResourcePageProps {
   user: User;
   resources: Resource[];
@@ -162,6 +194,25 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [resourceEnvironment, setResourceEnvironment] = useState<ResourceEnvironment>(ResourceEnvironment.STAGING);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+
+  const [isSubagentsExpanded, setIsSubagentsExpanded] = useState(isEditing);
+  const [isVisibilityExpanded, setIsVisibilityExpanded] = useState(isEditing);
+  const [selectedSubagentIds, setSelectedSubagentIds] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState<boolean>(true);
+  const [showAddSubagentDropdown, setShowAddSubagentDropdown] = useState(false);
+
+  // Recursive cycle checking helper
+  const isCycle = (agentIdToCheck: string, currentAgentId: string): boolean => {
+    if (agentIdToCheck === currentAgentId) return true;
+    const agent = resources.find(r => r.id === agentIdToCheck);
+    if (!agent || !agent.subagents) return false;
+    return agent.subagents.some(subId => isCycle(subId, currentAgentId));
+  };
+
+  const hasCycle = (targetAgentId: string): boolean => {
+    if (!id) return false;
+    return isCycle(targetAgentId, id);
+  };
   
   // Collapsible section states to prevent scrolling
   const [isTypeExpanded, setIsTypeExpanded] = useState(isEditing);
@@ -179,6 +230,8 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
 
   // Tools states
   const [linkedToolIds, setLinkedToolIds] = useState<string[]>([]);
+  const linkedTools = tools.filter(t => linkedToolIds.includes(t.id));
+  const linkedSkills = resources.filter(r => r.type === ResourceType.SKILL && linkedToolIds.includes(r.id));
   const [isToolsExpanded, setIsToolsExpanded] = useState(isEditing);
   const [isAddingToolModalOpen, setIsAddingToolModalOpen] = useState(false);
   const [isLinkingToolModalOpen, setIsLinkingToolModalOpen] = useState(false);
@@ -465,8 +518,33 @@ Aqui está o texto do usuário:
           });
         }
       }
+
+      if (editingResource.type === ResourceType.AGENT) {
+        setSelectedSubagentIds(editingResource.subagents || []);
+        setIsPublic(editingResource.isPublic !== false);
+      }
     }
   }, [isEditing, editingResource]);
+
+  // Sync default agent prompt template
+  useEffect(() => {
+    if (createType === ResourceType.AGENT && !prompt.trim()) {
+      setPrompt(DEFAULT_AGENT_PROMPT_TEMPLATE);
+    }
+  }, [createType]);
+
+  // Recommend model LLM when prompt and identification are filled
+  useEffect(() => {
+    if (createType === ResourceType.AGENT) {
+      const isPromptFilled = prompt.trim() !== '' && 
+                             !prompt.includes('[domínio]') && 
+                             !prompt.includes('[Descrição clara]');
+      const isNameFilled = name.trim() !== '';
+      if (isPromptFilled && isNameFilled) {
+        setModel('claude-sonnet-4-6');
+      }
+    }
+  }, [prompt, name, createType]);
 
   const handleImproveDescription = async () => {
     if (!description.trim()) return;
@@ -544,6 +622,10 @@ Aqui está o texto do usuário:
 
     const finalizedModel = createType === ResourceType.AUTOMATION && selectedAutomationSubtype === 'simples' ? undefined : model;
 
+    const finalizedRole = createType === ResourceType.AGENT 
+      ? (isPublic ? UserRole.BASIC : UserRole.ADMINISTRATOR)
+      : requiredRole;
+
     if (isEditing && editingResource) {
       onUpdateResource({
         ...editingResource,
@@ -552,7 +634,7 @@ Aqui está o texto do usuário:
         projectId: finalProjectId,
         type: createType,
         agentType: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? agentType : undefined,
-        requiredRole,
+        requiredRole: finalizedRole,
         prompt: finalizedPrompt,
         model: finalizedModel,
         webhookUrl,
@@ -562,7 +644,9 @@ Aqui está o texto do usuário:
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
         schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined
+        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
+        subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
+        isPublic: createType === ResourceType.AGENT ? isPublic : undefined
       });
     } else {
       onCreateResource({
@@ -571,7 +655,7 @@ Aqui está o texto do usuário:
         projectId: finalProjectId,
         type: createType,
         agentType: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? agentType : undefined,
-        requiredRole,
+        requiredRole: finalizedRole,
         prompt: finalizedPrompt,
         model: finalizedModel,
         webhookUrl,
@@ -581,7 +665,9 @@ Aqui está o texto do usuário:
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
         schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined
+        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
+        subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
+        isPublic: createType === ResourceType.AGENT ? isPublic : undefined
       });
     }
     navigate('/resources');
@@ -1143,6 +1229,11 @@ REQUISITOS OPERACIONAIS:
                                   onChange={e => setModel(e.target.value)}
                                   className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
                                 >
+                                  {createType === ResourceType.AGENT && (
+                                    <optgroup label="Recomendado para Agentes">
+                                      <option value="claude-sonnet-4-6">claude-sonnet-4-6 (recomendado)</option>
+                                    </optgroup>
+                                  )}
                                   <optgroup label="OpenAI">
                                     <option value="GPT-4o">GPT-4o</option>
                                     <option value="GPT-4o-mini">GPT-4o mini</option>
@@ -1154,6 +1245,7 @@ REQUISITOS OPERACIONAIS:
                                   <optgroup label="Anthropic">
                                     <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
                                     <option value="Claude 3 Haiku">Claude 3 Haiku</option>
+                                    <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
                                   </optgroup>
                                 </select>
                                 <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1391,24 +1483,40 @@ REQUISITOS OPERACIONAIS:
 
                     {isPromptExpanded && (
                       <div className="p-6 border-t border-slate-100 space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prompt de Instruções</label>
-                          <button 
-                            type="button"
-                            onClick={handleImprovePrompt}
-                            disabled={isImprovingPrompt || !prompt.trim()}
-                            className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-all bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
-                          >
-                            {isImprovingPrompt ? <Icons.Loader className="w-3 h-3 animate-spin" /> : <Icons.Sparkles className="w-3 h-3" />}
-                            {isImprovingPrompt ? 'Refinando Engine...' : 'IA: Otimizar System Prompt'}
-                          </button>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {createType === ResourceType.AGENT ? 'Prompt do Agente (Multi-step)' : 'Prompt de Instruções'}
+                          </label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {createType === ResourceType.AGENT && (
+                              <button
+                                type="button"
+                                onClick={() => setPrompt(DEFAULT_AGENT_PROMPT_TEMPLATE)}
+                                className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 transition-all bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100/50"
+                              >
+                                <Icons.ClipboardList className="w-3.5 h-3.5" />
+                                <span>Restaurar Estrutura Multi-step</span>
+                              </button>
+                            )}
+                            <button 
+                              type="button"
+                              onClick={handleImprovePrompt}
+                              disabled={isImprovingPrompt || !prompt.trim()}
+                              className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-all bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                            >
+                              {isImprovingPrompt ? <Icons.Loader className="w-3 h-3 animate-spin" /> : <Icons.Sparkles className="w-3 h-3" />}
+                              {isImprovingPrompt ? 'Refinando Engine...' : 'IA: Otimizar System Prompt'}
+                            </button>
+                          </div>
                         </div>
                         <textarea 
                           required 
                           value={prompt} 
                           onChange={e => setPrompt(e.target.value)} 
-                          rows={8} 
-                          placeholder="Ex: Você é um assistente sênior da Zucchetti especialista em..." 
+                          rows={16} 
+                          placeholder={createType === ResourceType.AGENT 
+                            ? "Configure as diretrizes operacionais do agente usando a estrutura Multi-step..." 
+                            : "Ex: Você é um assistente sênior da Zucchetti especialista em..."}
                           className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
                         ></textarea>
                       </div>
@@ -1738,14 +1846,14 @@ REQUISITOS OPERACIONAIS:
                         <Icons.Workflow className="w-5 h-5 text-sky-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-800">Definições de Tools (Ações do Agente)</h3>
-                        <p className="text-[11px] text-slate-500 font-medium">Cadastre e vincule APIs HTTP ou fluxos MCP para controle operacional do Agente</p>
+                        <h3 className="text-sm font-bold text-slate-800">Definições de Tools & Skills (Ações do Agente)</h3>
+                        <p className="text-[11px] text-slate-500 font-medium">Cadastre e vincule APIs HTTP, fluxos MCP ou skills do Luna para controle operacional do Agente</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {linkedToolIds.length > 0 && (
+                      {(linkedTools.length + linkedSkills.length) > 0 && (
                         <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
-                          {linkedToolIds.length} {linkedToolIds.length === 1 ? 'tool vinculada' : 'tools vinculadas'}
+                          {linkedTools.length + linkedSkills.length} {(linkedTools.length + linkedSkills.length) === 1 ? 'item vinculado' : 'itens vinculados'}
                         </span>
                       )}
                       <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isToolsExpanded ? 'rotate-180' : ''}`} />
@@ -1756,7 +1864,7 @@ REQUISITOS OPERACIONAIS:
                     <div className="p-6 border-t border-slate-100 space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                          <p className="text-xs text-slate-400 font-semibold">Atribua capacidades e conectores para que o modelo de IA consiga realizar operações.</p>
+                          <p className="text-xs text-slate-400 font-semibold">Atribua capacidades, conectores e skills para que o modelo de IA consiga realizar operações.</p>
                         </div>
                         <div className="flex gap-2.5 shrink-0 self-start sm:self-auto">
                           <button
@@ -1765,7 +1873,7 @@ REQUISITOS OPERACIONAIS:
                             className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-850 hover:bg-slate-100 transition-all bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200"
                           >
                             <Icons.Link className="w-3.5 h-3.5" />
-                            <span>Vincular existente</span>
+                            <span>Vincular existente (Tool/Skill)</span>
                           </button>
                           <button
                             type="button"
@@ -1783,60 +1891,219 @@ REQUISITOS OPERACIONAIS:
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {(() => {
-                          const linkedTools = tools.filter(t => linkedToolIds.includes(t.id));
-                          if (linkedTools.length === 0) {
+                          if (linkedTools.length === 0 && linkedSkills.length === 0) {
                             return (
                               <div className="col-span-full p-10 rounded-[24px] border-2 border-dashed border-slate-100 text-center bg-slate-50/25">
                                 <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-350 mx-auto mb-3 shadow-sm">
                                   <Icons.Workflow className="w-5 h-5 text-slate-400" />
                                 </div>
-                                <div className="text-xs font-bold text-slate-650">Nenhuma tool vinculada ao agente</div>
-                                <div className="text-[11px] text-slate-400 mt-1">Conecte endpoints de REST APIs (HTTP) ou servidores MCP para habilitar ações.</div>
+                                <div className="text-xs font-bold text-slate-650">Nenhuma tool ou skill vinculada ao agente</div>
+                                <div className="text-[11px] text-slate-400 mt-1">Conecte endpoints de REST APIs (HTTP), servidores MCP ou skills do Luna.</div>
                               </div>
                             );
                           }
 
-                          return linkedTools.map(tool => (
-                            <div key={tool.id} className="group flex flex-col justify-between p-5 rounded-[22px] border border-slate-150 bg-white hover:border-slate-250 transition-all">
+                          return (
+                            <>
+                              {linkedTools.map(tool => (
+                                <div key={tool.id} className="group flex flex-col justify-between p-5 rounded-[22px] border border-slate-150 bg-white hover:border-slate-250 transition-all">
+                                  <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="font-extrabold text-xs text-slate-800 truncate" title={tool.name}>{tool.name}</span>
+                                      <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md ${tool.type === ToolType.HTTP ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                        {tool.type === ToolType.HTTP ? 'HTTP Request' : 'Servidor MCP'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">{tool.description}</p>
+                                    
+                                    {tool.parameters?.length > 0 && (
+                                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                        {tool.parameters.map((p, pIdx) => (
+                                          <span key={pIdx} className="text-[9px] bg-slate-50 border border-slate-200/60 text-slate-500 font-mono px-1.5 py-0.5 rounded-md">
+                                            {p.name}:{p.type}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 mt-4">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingToolForWizard(tool);
+                                        setIsAddingToolModalOpen(true);
+                                      }}
+                                      className="text-[11px] font-bold text-sky-600 hover:text-sky-700 transition-all flex items-center gap-1"
+                                    >
+                                      <Icons.Settings className="w-3.5 h-3.5" />
+                                      <span>Editar Definição</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setLinkedToolIds(prev => prev.filter(id => id !== tool.id))}
+                                      className="text-[11px] font-bold text-rose-600 hover:text-rose-700 transition-all flex items-center gap-1"
+                                    >
+                                      <Icons.X className="w-3.5 h-3.5" />
+                                      <span>Desvincular</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {linkedSkills.map(skill => (
+                                <div key={skill.id} className="group flex flex-col justify-between p-5 rounded-[22px] border border-emerald-150 bg-emerald-50/10 hover:border-emerald-250 transition-all">
+                                  <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="font-extrabold text-xs text-slate-800 truncate" title={skill.name}>{skill.name}</span>
+                                      <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md bg-emerald-100 text-emerald-700">
+                                        Skill / Habilidade
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">{skill.description}</p>
+                                  </div>
+
+                                  <div className="flex items-center justify-end pt-3.5 border-t border-slate-100 mt-4">
+                                    <button
+                                      type="button"
+                                      onClick={() => setLinkedToolIds(prev => prev.filter(id => id !== skill.id))}
+                                      className="text-[11px] font-bold text-rose-600 hover:text-rose-700 transition-all flex items-center gap-1"
+                                    >
+                                      <Icons.X className="w-3.5 h-3.5" />
+                                      <span>Desvincular</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ACCORDION: Subagentes disponíveis */}
+              {createType === ResourceType.AGENT && (
+                <div className="col-span-full border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all mt-6 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => setIsSubagentsExpanded(!isSubagentsExpanded)}
+                    className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-teal-600 shadow-sm shrink-0">
+                        <Icons.Users className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">Subagentes disponíveis</h3>
+                        <p className="text-[11px] text-slate-500 font-medium font-semibold">Declare quais agentes filhos este agente pode acionar. O orquestrador delega para eles durante o reasoning.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {selectedSubagentIds.length > 0 && (
+                        <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
+                          {selectedSubagentIds.length} {selectedSubagentIds.length === 1 ? 'subagente' : 'subagentes'}
+                        </span>
+                      )}
+                      <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubagentsExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {isSubagentsExpanded && (
+                    <div className="p-6 border-t border-slate-100 space-y-6">
+                      <div className="p-4 bg-teal-50/30 border border-teal-100 rounded-2xl text-xs text-teal-800 font-medium flex items-start gap-3">
+                        <Icons.Info className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>Um subagente nunca pode acionar o agente que o criou — sem ciclos na hierarquia.</span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-slate-400 font-semibold">Vincule outros agentes criados para funcionar como subagentes subordinados a este orquestrador.</p>
+                        </div>
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setShowAddSubagentDropdown(!showAddSubagentDropdown)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 transition-all bg-teal-50 px-4 py-2.5 rounded-xl border border-teal-100"
+                          >
+                            <Icons.Plus className="w-3.5 h-3.5" />
+                            <span>Adicionar subagente</span>
+                          </button>
+
+                          {showAddSubagentDropdown && (
+                            <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden py-1 max-h-60 overflow-y-auto">
+                              <div className="px-3 py-2 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agentes Disponíveis</div>
+                              {(() => {
+                                const availableAgents = resources.filter(
+                                  r => r.type === ResourceType.AGENT && 
+                                  r.id !== id && 
+                                  !hasCycle(r.id) && 
+                                  !selectedSubagentIds.includes(r.id)
+                                );
+
+                                if (availableAgents.length === 0) {
+                                  return (
+                                    <div className="px-4 py-3 text-xs text-slate-400 text-center">Nenhum agente disponível ou livre de ciclos</div>
+                                  );
+                                }
+
+                                return availableAgents.map(agent => (
+                                  <button
+                                    key={agent.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedSubagentIds(prev => [...prev, agent.id]);
+                                      setShowAddSubagentDropdown(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-all text-xs"
+                                  >
+                                    <div className="font-bold text-slate-700">{agent.name}</div>
+                                    <div className="text-[10px] text-slate-400 font-medium truncate">{agent.description}</div>
+                                  </button>
+                                ));
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(() => {
+                          const linkedSubagents = resources.filter(r => selectedSubagentIds.includes(r.id));
+                          if (linkedSubagents.length === 0) {
+                            return (
+                              <div className="col-span-full p-10 rounded-[24px] border-2 border-dashed border-slate-100 text-center bg-slate-50/25">
+                                <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-350 mx-auto mb-3 shadow-sm">
+                                  <Icons.Users className="w-5 h-5 text-slate-400" />
+                                </div>
+                                <div className="text-xs font-bold text-slate-650">Nenhum subagente vinculado</div>
+                                <div className="text-[11px] text-slate-400 mt-1">Conecte outros agentes para habilitar a delegação de tarefas de forma hierárquica.</div>
+                              </div>
+                            );
+                          }
+
+                          return linkedSubagents.map(sub => (
+                            <div key={sub.id} className="group flex flex-col justify-between p-5 rounded-[22px] border border-slate-150 bg-white hover:border-slate-250 transition-all text-left">
                               <div className="space-y-2.5">
                                 <div className="flex items-center justify-between gap-3">
-                                  <span className="font-extrabold text-xs text-slate-800 truncate" title={tool.name}>{tool.name}</span>
-                                  <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md ${tool.type === ToolType.HTTP ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                                    {tool.type === ToolType.HTTP ? 'HTTP Request' : 'Servidor MCP'}
+                                  <span className="font-extrabold text-xs text-slate-800 truncate" title={sub.name}>{sub.name}</span>
+                                  <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md bg-teal-100 text-teal-700">
+                                    Agente Subordinado
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">{tool.description}</p>
-                                
-                                {tool.parameters?.length > 0 && (
-                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                    {tool.parameters.map((p, pIdx) => (
-                                      <span key={pIdx} className="text-[9px] bg-slate-50 border border-slate-200/60 text-slate-500 font-mono px-1.5 py-0.5 rounded-md">
-                                        {p.name}:{p.type}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                                <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">{sub.description}</p>
                               </div>
 
-                              <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 mt-4">
+                              <div className="flex items-center justify-end pt-3.5 border-t border-slate-100 mt-4">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEditingToolForWizard(tool);
-                                    setIsAddingToolModalOpen(true);
-                                  }}
-                                  className="text-[11px] font-bold text-sky-600 hover:text-sky-700 transition-all flex items-center gap-1"
-                                >
-                                  <Icons.Settings className="w-3.5 h-3.5" />
-                                  <span>Editar Definição</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setLinkedToolIds(prev => prev.filter(id => id !== tool.id))}
+                                  onClick={() => setSelectedSubagentIds(prev => prev.filter(subId => subId !== sub.id))}
                                   className="text-[11px] font-bold text-rose-600 hover:text-rose-700 transition-all flex items-center gap-1"
                                 >
                                   <Icons.X className="w-3.5 h-3.5" />
-                                  <span>Desvincular</span>
+                                  <span>Desvincular Subagente</span>
                                 </button>
                               </div>
                             </div>
@@ -1848,115 +2115,175 @@ REQUISITOS OPERACIONAIS:
                 </div>
               )}
 
-              {/* COMPONENTE AGENDADOR - RF01 */}
+              {/* COMPONENTE AGENDADOR E VISIBILIDADE - RF01 */}
               {createType === ResourceType.AGENT && (
-                <div id="luna-scheduler-component" className="col-span-full border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all mt-6 font-sans">
-                  <button
-                    type="button"
-                    onClick={() => setIsSchedulerExpanded(!isSchedulerExpanded)}
-                    className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
-                        <Icons.Clock className="w-5 h-5 text-indigo-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-slate-800">Agendador (Execução Autônoma)</h3>
-                          {schedulerEnabled ? (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase">Ativo</span>
-                          ) : (
-                            <span className="bg-slate-100 text-slate-500 border border-slate-200 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase">Inativo</span>
-                          )}
+                <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* ACCORDION: Visibilidade */}
+                  <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all font-sans">
+                    <button
+                      type="button"
+                      onClick={() => setIsVisibilityExpanded(!isVisibilityExpanded)}
+                      className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-teal-600 shadow-sm shrink-0">
+                          <Icons.Eye className="w-5 h-5 text-teal-600" />
                         </div>
-                        <p className="text-[11px] text-slate-500 font-medium">Configure execuções periódicas automáticas para o seu agente rodar sozinho</p>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-800">Visibilidade</h3>
+                          <p className="text-[11px] text-slate-500 font-semibold">Defina as permissões de acesso para este agente</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {schedulerEnabled && (
-                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
-                          {schedulerPeriodicity}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
+                          {isPublic ? 'Público' : 'Privado'}
                         </span>
-                      )}
-                      <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isSchedulerExpanded ? 'rotate-180' : ''}`} />
-                    </div>
-                  </button>
-
-                  {isSchedulerExpanded && (
-                    <div className="p-6 border-t border-slate-100 space-y-6">
-                      
-                      {/* Ativar/Desativar Agendador */}
-                      <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-150 rounded-2xl">
-                        <div className="space-y-0.5">
-                          <label className="text-xs font-bold text-slate-700 block">Ativar Agendamento Autônomo</label>
-                          <p className="text-[11px] text-slate-400 font-medium">Quando ativo, o agente rodará sem requerer interação manual no Playground</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer select-none">
-                          <input 
-                            type="checkbox" 
-                            id="scheduler-toggle"
-                            checked={schedulerEnabled}
-                            onChange={(e) => setSchedulerEnabled(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
+                        <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isVisibilityExpanded ? 'rotate-180' : ''}`} />
                       </div>
+                    </button>
 
-                      {schedulerEnabled && (
-                        <div className="space-y-6 animate-in fade-in duration-200">
-                          
-                          {/* RF02 - Periodicidade */}
-                          <div className="grid grid-cols-1 gap-6">
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                <span>Periodicidade de Execução</span>
-                                <span className="text-rose-500 font-bold">*</span>
-                              </label>
-                              <p className="text-[11px] text-slate-450 leading-relaxed font-medium">Defina em qual frequência ou horário o agente iniciará o ciclo de reasoning.</p>
-                              
-                              <div className="grid grid-cols-3 gap-2 mt-2">
-                                {[
-                                  { label: 'Cada 10 min', value: '10m' },
-                                  { label: 'Cada 30 min', value: '30m' },
-                                  { label: 'Cada 1 hora', value: '1h' },
-                                  { label: 'Cada 12 horas', value: '12h' },
-                                  { label: 'Diário (09:00)', value: '0 9 * * *' },
-                                  { label: 'Semanal (Seg)', value: '0 9 * * 1' },
-                                ].map((pOption) => (
-                                  <button
-                                    key={pOption.value}
-                                    type="button"
-                                    onClick={() => setSchedulerPeriodicity(pOption.value)}
-                                    className={`py-2 px-3 text-center text-[10px] sm:text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                                      schedulerPeriodicity === pOption.value
-                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {pOption.label}
-                                  </button>
-                                ))}
-                              </div>
+                    {isVisibilityExpanded && (
+                      <div className="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setIsPublic(true)}
+                          className={`flex flex-col items-start p-5 rounded-2xl border text-left transition-all ${isPublic ? 'border-teal-500 bg-teal-50/30 ring-4 ring-teal-500/10' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isPublic ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-650'}`}>
+                              <Icons.Eye className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-800">Público</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">Todos os usuários podem visualizar e utilizar este agente no catálogo do Luna.</p>
+                        </button>
 
-                              <div className="pt-2">
-                                <label className="text-[10px] font-bold text-slate-400 block mb-1">Expressão Customizada (Intervalo ou Cron)</label>
-                                <input
-                                  type="text"
-                                  id="scheduler-periodicity-input"
-                                  value={schedulerPeriodicity}
-                                  onChange={(e) => setSchedulerPeriodicity(e.target.value)}
-                                  placeholder="Ex: 5m, 2h ou 0 18 * * 1-5"
-                                  className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-250 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                />
+                        <button
+                          type="button"
+                          onClick={() => setIsPublic(false)}
+                          className={`flex flex-col items-start p-5 rounded-2xl border text-left transition-all ${!isPublic ? 'border-amber-500 bg-amber-50/30 ring-4 ring-amber-500/10' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!isPublic ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-650'}`}>
+                              <Icons.EyeOff className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-800">Privado</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">Acesso restrito. Apenas administradores e o criador possuem permissão direta de uso.</p>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* COMPONENTE AGENDADOR - RF01 */}
+                  <div id="luna-scheduler-component" className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all font-sans">
+                    <button
+                      type="button"
+                      onClick={() => setIsSchedulerExpanded(!isSchedulerExpanded)}
+                      className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                          <Icons.Clock className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-800">Agendador (Execução Autônoma)</h3>
+                            {schedulerEnabled ? (
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase">Ativo</span>
+                            ) : (
+                              <span className="bg-slate-100 text-slate-500 border border-slate-200 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase">Inativo</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">Configure execuções periódicas automáticas para o seu agente rodar sozinho</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {schedulerEnabled && (
+                          <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-tight">
+                            {schedulerPeriodicity}
+                          </span>
+                        )}
+                        <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isSchedulerExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+
+                    {isSchedulerExpanded && (
+                      <div className="p-6 border-t border-slate-100 space-y-6">
+                        
+                        {/* Ativar/Desativar Agendador */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-150 rounded-2xl">
+                          <div className="space-y-0.5">
+                            <label className="text-xs font-bold text-slate-700 block">Ativar Agendamento Autônomo</label>
+                            <p className="text-[11px] text-slate-400 font-medium">Quando ativo, o agente rodará sem requerer interação manual no Playground</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              id="scheduler-toggle"
+                              checked={schedulerEnabled}
+                              onChange={(e) => setSchedulerEnabled(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                          </label>
+                        </div>
+
+                        {schedulerEnabled && (
+                          <div className="space-y-6 animate-in fade-in duration-200">
+                            
+                            {/* RF02 - Periodicidade */}
+                            <div className="grid grid-cols-1 gap-6">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                  <span>Periodicidade de Execução</span>
+                                  <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <p className="text-[11px] text-slate-450 leading-relaxed font-medium">Defina em qual frequência ou horário o agente iniciará o ciclo de reasoning.</p>
+                                
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                  {[
+                                    { label: 'Cada 10 min', value: '10m' },
+                                    { label: 'Cada 30 min', value: '30m' },
+                                    { label: 'Cada 1 hora', value: '1h' },
+                                    { label: 'Cada 12 horas', value: '12h' },
+                                    { label: 'Diário (09:00)', value: '0 9 * * *' },
+                                    { label: 'Semanal (Seg)', value: '0 9 * * 1' },
+                                  ].map((pOption) => (
+                                    <button
+                                      key={pOption.value}
+                                      type="button"
+                                      onClick={() => setSchedulerPeriodicity(pOption.value)}
+                                      className={`py-2 px-3 text-center text-[10px] sm:text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                                        schedulerPeriodicity === pOption.value
+                                          ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      {pOption.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div className="pt-2">
+                                  <label className="text-[10px] font-bold text-slate-400 block mb-1">Expressão Customizada (Intervalo ou Cron)</label>
+                                  <input
+                                    type="text"
+                                    id="scheduler-periodicity-input"
+                                    value={schedulerPeriodicity}
+                                    onChange={(e) => setSchedulerPeriodicity(e.target.value)}
+                                    placeholder="Ex: 5m, 2h ou 0 18 * * 1-5"
+                                    className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-250 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                        </div>
-                      )}
-                    </div>
-                  )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -2256,6 +2583,7 @@ REQUISITOS OPERACIONAIS:
         isOpen={isLinkingToolModalOpen}
         onClose={() => setIsLinkingToolModalOpen(false)}
         allTools={tools}
+        allSkills={resources.filter(r => r.type === ResourceType.SKILL)}
         linkedToolIds={linkedToolIds}
         onLink={(toolId) => {
           if (!linkedToolIds.includes(toolId)) {

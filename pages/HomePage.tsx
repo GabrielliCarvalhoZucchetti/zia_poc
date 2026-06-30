@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icons } from '../constants';
 import { LevelUpAnimation } from '../components/LevelUpAnimation';
 import { StarfieldCanvas } from '../components/StarfieldCanvas';
 import { motion } from 'motion/react';
 import { HeaderAnimation } from '../components/HeaderAnimation';
 import { PremiumRankBadge } from '../components/PremiumRankBadge';
+import { generateAgentResponse } from '../services/geminiService';
 
 const RANKING_AI_USERS = [
   { rank: '1º', name: 'Alice Castro', count: 154, type: 'INTERAÇÕES', avatar: 'https://picsum.photos/seed/alice/100/100' },
@@ -41,12 +43,44 @@ const RANKING_AI_CHAMPION = [
 interface HomePageProps {
   user?: any;
   onUpdateUser?: (updatedUser: any) => void;
+  resources?: any[];
+  setActiveResource?: (resource: any) => void;
+  communityPosts?: any[];
+  setCommunityPosts?: any;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ user, onUpdateUser }) => {
+const HomePage: React.FC<HomePageProps> = ({ 
+  user, 
+  onUpdateUser,
+  resources = [],
+  setActiveResource,
+  communityPosts = [],
+  setCommunityPosts
+}) => {
+  const navigate = useNavigate();
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [selectedNews, setSelectedNews] = useState<{ title: string; date: string; content: string; tag: string } | null>(null);
+  
+  // Community Posts modal states
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [postToEdit, setPostToEdit] = useState<any | null>(null);
+  
+  // Creation/Edit fields
+  const [formTitle, setFormTitle] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const [formSummary, setFormSummary] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formHyperlink, setFormHyperlink] = useState('');
+  const [isGeneratingAiImage, setIsGeneratingAiImage] = useState(false);
+  
+  // Comment field
+  const [newCommentText, setNewCommentText] = useState('');
+  
+  // Filter
+  const [postFilter, setPostFilter] = useState<'ALL' | 'UPDATES' | 'AUTO' | 'LIKED'>('ALL');
+
   const [levelUpState, setLevelUpState] = useState<{ active: boolean; level: string }>({
     active: false,
     level: 'AI Builder'
@@ -92,6 +126,200 @@ const HomePage: React.FC<HomePageProps> = ({ user, onUpdateUser }) => {
     setCurrentStep(0);
     setIsOnboardingOpen(true);
   };
+
+  // Community post handlers
+  const handleToggleLike = (postId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!user) return;
+    
+    setCommunityPosts((prev: any[]) => prev.map(post => {
+      if (post.id === postId) {
+        const hasLiked = post.likes.includes(user.name);
+        const updatedLikes = hasLiked
+          ? post.likes.filter((name: string) => name !== user.name)
+          : [...post.likes, user.name];
+        
+        const updatedPost = { ...post, likes: updatedLikes };
+        if (selectedPost && selectedPost.id === postId) {
+          setSelectedPost(updatedPost);
+        }
+        return updatedPost;
+      }
+      return post;
+    }));
+  };
+
+  const handleAddComment = (postId: string) => {
+    if (!user || !newCommentText.trim()) return;
+    
+    const newComment = {
+      id: `c-${Date.now()}`,
+      user: user.name || 'Joao Silva',
+      content: newCommentText.trim(),
+      timestamp: new Date().toLocaleString()
+    };
+    
+    setCommunityPosts((prev: any[]) => prev.map(post => {
+      if (post.id === postId) {
+        const updatedPost = { ...post, comments: [...(post.comments || []), newComment] };
+        setSelectedPost(updatedPost);
+        return updatedPost;
+      }
+      return post;
+    }));
+    setNewCommentText('');
+  };
+
+  const handleDeleteComment = (postId: string, commentId: string) => {
+    setCommunityPosts((prev: any[]) => prev.map(post => {
+      if (post.id === postId) {
+        const updatedPost = { 
+          ...post, 
+          comments: (post.comments || []).filter((c: any) => c.id !== commentId) 
+        };
+        setSelectedPost(updatedPost);
+        return updatedPost;
+      }
+      return post;
+    }));
+  };
+
+  const handleDeletePost = (postId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (user?.role !== 'ADMINISTRATOR') return;
+    
+    if (window.confirm('Tem certeza de que deseja remover esta publicação do Luna Community?')) {
+      setCommunityPosts((prev: any[]) => prev.filter((p: any) => p.id !== postId));
+      if (selectedPost?.id === postId) {
+        setSelectedPost(null);
+      }
+    }
+  };
+
+  const triggerAiImageGeneration = async () => {
+    if (!formTitle.trim()) {
+      alert('Por favor, informe o título da publicação para que a IA possa gerar uma imagem correspondente.');
+      return;
+    }
+    setIsGeneratingAiImage(true);
+    try {
+      const prompt = `Gere apenas uma palavra ou termo curto em inglês (por exemplo, "robot-secretary", "modern-workspace", "brain-intelligence", "cyber-security", "cloud-database") que melhor represente o seguinte post do blog corporativo para ser usado como termo de busca de imagem. \nTítulo: ${formTitle}\nConteúdo: ${formContent}\nRetorne APENAS o termo/palavra em inglês sem pontuação, aspas, marcas ou explicações.`;
+      const result = await generateAgentResponse(prompt, [], "Você é um assistente especialista em curadoria de imagens modernas de tecnologia.");
+      const keyword = result.trim().replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() || 'technology';
+      
+      const randomId = Math.floor(Math.random() * 1000);
+      const generatedUrl = `https://images.unsplash.com/featured/800x600?${keyword}&sig=${randomId}`;
+      setFormImageUrl(generatedUrl);
+    } catch (err) {
+      console.error("AI Image Generation Error:", err);
+      setFormImageUrl('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80');
+    } finally {
+      setIsGeneratingAiImage(false);
+    }
+  };
+
+  const handleOpenCreateModal = () => {
+    setFormTitle('');
+    setFormContent('');
+    setFormSummary('');
+    setFormImageUrl('');
+    setFormHyperlink('');
+    setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEditModal = (post: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPostToEdit(post);
+    setFormTitle(post.title);
+    setFormContent(post.content);
+    setFormSummary(post.summary);
+    setFormImageUrl(post.imageUrl);
+    setFormHyperlink(post.hyperlink || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSavePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim() || !formContent.trim()) {
+      alert('Por favor, informe pelo menos o Título e o Texto da publicação.');
+      return;
+    }
+
+    let finalImageUrl = formImageUrl.trim();
+    if (!finalImageUrl) {
+      setIsGeneratingAiImage(true);
+      try {
+        const prompt = `Dê apenas um termo ou palavra-chave em inglês com no máximo duas palavras que represente o assunto (Título: "${formTitle}", Conteúdo: "${formContent}"). Retorne apenas o termo em inglês.`;
+        const result = await generateAgentResponse(prompt, [], "Você é um assistente especialista em curadoria de imagens.");
+        const keyword = result.trim().replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() || 'technology';
+        finalImageUrl = `https://images.unsplash.com/featured/800x600?${keyword}`;
+      } catch (err) {
+        finalImageUrl = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80';
+      } finally {
+        setIsGeneratingAiImage(false);
+      }
+    }
+
+    const calculatedSummary = formSummary.trim() || (formContent.length > 120 ? formContent.substring(0, 117) + '...' : formContent);
+
+    if (isEditModalOpen && postToEdit) {
+      setCommunityPosts((prev: any[]) => prev.map(p => {
+        if (p.id === postToEdit.id) {
+          const updated = {
+            ...p,
+            title: formTitle,
+            content: formContent,
+            summary: calculatedSummary,
+            imageUrl: finalImageUrl,
+            hyperlink: formHyperlink
+          };
+          if (selectedPost && selectedPost.id === p.id) {
+            setSelectedPost(updated);
+          }
+          return updated;
+        }
+        return p;
+      }));
+      setIsEditModalOpen(false);
+      setPostToEdit(null);
+    } else {
+      const newPost = {
+        id: `post-${Date.now()}`,
+        title: formTitle,
+        content: formContent,
+        summary: calculatedSummary,
+        imageUrl: finalImageUrl,
+        hyperlink: formHyperlink,
+        author: user?.name || 'Administrador Luna',
+        date: new Date().toISOString().split('T')[0],
+        likes: [],
+        comments: []
+      };
+      setCommunityPosts((prev: any[]) => [newPost, ...prev]);
+      setIsCreateModalOpen(false);
+    }
+  };
+
+  const handleOpenPlayground = (resourceId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!setActiveResource) return;
+    
+    const resource = resources.find((r: any) => r.id === resourceId);
+    if (resource) {
+      setActiveResource(resource);
+      navigate('/chat');
+    } else {
+      navigate('/chat');
+    }
+  };
+
+  const filteredPosts = (communityPosts || []).filter(post => {
+    if (postFilter === 'ALL') return true;
+    if (postFilter === 'UPDATES') return !post.isAutoGenerated;
+    if (postFilter === 'AUTO') return !!post.isAutoGenerated;
+    if (postFilter === 'LIKED') return post.likes?.includes(user?.name);
+    return true;
+  });
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-[#030712] p-8 relative transition-colors duration-300">
@@ -535,130 +763,612 @@ const HomePage: React.FC<HomePageProps> = ({ user, onUpdateUser }) => {
           </div>
         </section>
 
-        {/* LUNA NEWS */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-lg animate-pulse">📢</span>
-            <h3 className="text-base font-black text-slate-800 dark:text-white tracking-tight">Luna News</h3>
+        {/* LUNA COMMUNITY */}
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-850 pb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👥</span>
+              <div className="space-y-0.5">
+                <h3 className="text-base font-black text-slate-800 dark:text-white tracking-tight">Luna Community</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Notícias, novidades da plataforma e conexões com assistentes em produção.</p>
+              </div>
+            </div>
+
+            {/* Actions for community: Create (if Admin) & Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                <button 
+                  type="button"
+                  onClick={() => setPostFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${postFilter === 'ALL' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Todos
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setPostFilter('UPDATES')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${postFilter === 'UPDATES' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Novidades 🌟
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setPostFilter('AUTO')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${postFilter === 'AUTO' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Automáticos 🤖
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setPostFilter('LIKED')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${postFilter === 'LIKED' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Curtidos ❤️
+                </button>
+              </div>
+
+              {user?.role === 'ADMINISTRATOR' && (
+                <button 
+                  type="button"
+                  onClick={handleOpenCreateModal}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-black text-xs rounded-xl shadow-md shadow-sky-100 dark:shadow-none flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                >
+                  <span>+ Criar Publicação</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* News 1 */}
-            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md hover:border-slate-350 dark:hover:border-slate-700 transition-all">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">
-                  <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-md">INOVAÇÃO</span>
-                  <span>2026-04-20</span>
-                </div>
-                <h4 className="text-base font-black text-slate-800 dark:text-slate-100 leading-snug">Novo Modelo GPT-5 Liberado!</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  A OpenAI acaba de liberar acesso ao novo modelo GPT-5 para parceiros Enterprise.
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedNews({
-                  title: 'Novo Modelo GPT-5 Liberado!',
-                  date: '2026-04-20',
-                  tag: 'INOVAÇÃO',
-                  content: 'A OpenAI anunciou o lançamento do aguardado GPT-5 para parceiros corporativos selecionados. O novo modelo demonstra saltos qualitativos substanciais em raciocínio complexo, coding avançado e suporte nativo a contexto estendido de múltiplos milhões de tokens com latência reduzida.'
-                })}
-                className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-305 font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>Ler mais</span>
-                <Icons.ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+          {/* Feed Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPosts.map((post: any) => {
+              const hasLiked = post.likes?.includes(user?.name);
+              return (
+                <motion.div 
+                  key={post.id}
+                  layoutId={`post-card-${post.id}`}
+                  className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-3xl overflow-hidden flex flex-col justify-between hover:shadow-lg hover:border-slate-350 dark:hover:border-slate-700 transition-all duration-300 group"
+                >
+                  {/* Image Header */}
+                  <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-950 overflow-hidden cursor-pointer" onClick={() => setSelectedPost(post)}>
+                    <img 
+                      src={post.imageUrl || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80'} 
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                    
+                    {/* Badge */}
+                    <div className="absolute top-4 left-4 flex gap-1.5">
+                      {post.isAutoGenerated ? (
+                        <span className="bg-emerald-500/90 text-white font-mono text-[9px] font-black tracking-wider px-2.5 py-1 rounded-full uppercase flex items-center gap-1 shadow-sm backdrop-blur-md">
+                          <span>🤖 AUTOMÁTICO</span>
+                        </span>
+                      ) : (
+                        <span className="bg-sky-500/95 text-white font-mono text-[9px] font-black tracking-wider px-2.5 py-1 rounded-full uppercase shadow-sm">
+                          <span>🌟 NOVIDADE</span>
+                        </span>
+                      )}
+                    </div>
 
-            {/* News 2 */}
-            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md hover:border-slate-350 dark:hover:border-slate-700 transition-all">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">
-                  <span className="bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 px-2.5 py-1 rounded-md">EDUCAÇÃO</span>
-                  <span>2026-04-18</span>
-                </div>
-                <h4 className="text-base font-black text-slate-800 dark:text-slate-100 leading-snug">Workshop de Prompt Engineering</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Participe do nosso workshop semanal sobre como criar assistentes mais eficientes.
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedNews({
-                  title: 'Workshop de Prompt Engineering',
-                  date: '2026-04-18',
-                  tag: 'EDUCAÇÃO',
-                  content: 'Aprenda as principais técnicas de engenharia de prompts (Few-Shot, Chain-of-Thought, Meta-Prompts) para maximizar o retorno dos assistentes virtuais de sua equipe. O workshop ocorrerá nesta quarta-feira às 14h, com vagas abertas no Zoom da Zucchetti.'
-                })}
-                className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-305 font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>Ler mais</span>
-                <Icons.ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                    {/* Admin Options Float */}
+                    {user?.role === 'ADMINISTRATOR' && (
+                      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-md p-1 rounded-xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          type="button"
+                          onClick={(e) => handleOpenEditModal(post, e)}
+                          title="Editar"
+                          className="p-1.5 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Icons.Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={(e) => handleDeletePost(post.id, e)}
+                          title="Remover"
+                          className="p-1.5 hover:bg-red-500/30 text-red-200 hover:text-red-105 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Icons.Trash className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
 
-            {/* News 3 */}
-            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md hover:border-slate-350 dark:hover:border-slate-700 transition-all">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">
-                  <span className="bg-brand-50 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 px-2.5 py-1 rounded-md">NOVOS RECURSOS</span>
-                  <span>2026-04-15</span>
-                </div>
-                <h4 className="text-base font-black text-slate-800 dark:text-slate-100 leading-snug">Luna agora fala com seu ERP</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Novas integrações devem permitir consultar dados de faturamento diretamente via chat.
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedNews({
-                  title: 'Luna agora fala com seu ERP',
-                  date: '2026-04-15',
-                  tag: 'NOVOS RECURSOS',
-                  content: 'Integrar os dados do ERP às LLMs corporativas agora é realidade. Com as novas skills de banco de dados, você poderá disparar relatórios financeiros, conferir status de contratos e emitir resumos fiscais em segundos simplesmente digitando comandos intuitivos no chat.'
-                })}
-                className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-305 font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>Ler mais</span>
-                <Icons.ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <span className="text-[10px] font-bold text-slate-300 dark:text-slate-400 font-mono flex items-center gap-1">
+                        <span>BY {post.author.toUpperCase()}</span>
+                        <span>•</span>
+                        <span>{post.date}</span>
+                      </span>
+                    </div>
+                  </div>
 
+                  {/* Body */}
+                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-2 cursor-pointer" onClick={() => setSelectedPost(post)}>
+                      <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                        {post.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
+                        {post.summary}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs">
+                      {/* Interaction Actions */}
+                      <div className="flex items-center gap-4">
+                        <button 
+                          type="button"
+                          onClick={(e) => handleToggleLike(post.id, e)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                            hasLiked 
+                              ? 'bg-red-50 dark:bg-red-950/30 text-red-500 font-black' 
+                              : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          }`}
+                        >
+                          <span className={hasLiked ? 'scale-110' : ''}>{hasLiked ? '❤️' : '🤍'}</span>
+                          <span>{post.likes?.length || 0}</span>
+                        </button>
+
+                        <button 
+                          type="button"
+                          onClick={() => setSelectedPost(post)}
+                          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2.5 py-1 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
+                        >
+                          <span>💬</span>
+                          <span>{post.comments?.length || 0}</span>
+                        </button>
+                      </div>
+
+                      {/* Playground action / Hyperlink action */}
+                      {post.resourceId ? (
+                        <button 
+                          type="button"
+                          onClick={(e) => handleOpenPlayground(post.resourceId, e)}
+                          className="text-xs font-black text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <span>Playground 🤖</span>
+                          <Icons.ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      ) : post.hyperlink ? (
+                        <a 
+                          href={post.hyperlink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs font-black text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-305 flex items-center gap-1 cursor-pointer transition-colors inline-flex"
+                        >
+                          <span>Ver link</span>
+                          <Icons.ArrowRight className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => setSelectedPost(post)}
+                          className="text-xs font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <span>Ler mais</span>
+                          <Icons.ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
+
+          {filteredPosts.length === 0 && (
+            <div className="bg-slate-50 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center">
+              <span className="text-3xl block mb-2">📭</span>
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma publicação encontrada</h4>
+              <p className="text-xs text-slate-400 mt-1">Seja o primeiro a publicar novidades ou promova um recurso para Produção para vê-lo listado aqui!</p>
+            </div>
+          )}
         </section>
 
       </div>
 
-      {/* LUNA NEWS DETAIL MODAL */}
-      {selectedNews && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-2xl relative space-y-6">
-            <button 
-              type="button" 
-              onClick={() => setSelectedNews(null)}
-              className="absolute top-6 right-6 p-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white cursor-pointer transition-colors"
-            >
-              <Icons.X className="w-4 h-4" />
-            </button>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">
-                <span className="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 px-2 rounded-md py-0.5">{selectedNews.tag}</span>
-                <span>{selectedNews.date}</span>
+      {/* LUNA COMMUNITY DETAIL MODAL */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden my-8">
+            {/* Header image background */}
+            <div className="h-64 w-full relative shrink-0 bg-slate-100 dark:bg-slate-950">
+              <img 
+                src={selectedPost.imageUrl || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80'} 
+                alt={selectedPost.title}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+              
+              {/* Close Button float */}
+              <button 
+                type="button" 
+                onClick={() => setSelectedPost(null)}
+                className="absolute top-6 right-6 p-2 rounded-xl bg-slate-950/40 backdrop-blur-md hover:bg-slate-950/60 text-white cursor-pointer border border-white/10 transition-colors z-10"
+              >
+                <Icons.X className="w-4 h-4" />
+              </button>
+
+              <div className="absolute bottom-6 left-8 right-8 space-y-2 text-white">
+                <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-slate-300">
+                  <span className={`px-2.5 py-1 rounded-md text-white font-mono ${selectedPost.isAutoGenerated ? 'bg-emerald-600/90' : 'bg-sky-600/90'}`}>
+                    {selectedPost.isAutoGenerated ? 'AUTO' : 'NOVIDADE'}
+                  </span>
+                  <span>{selectedPost.date}</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight pt-1">
+                  {selectedPost.title}
+                </h3>
+                <p className="text-xs text-slate-300 font-bold font-mono">
+                  PUBLICADO POR: {selectedPost.author.toUpperCase()}
+                </p>
               </div>
-              <h3 className="text-xl font-black text-slate-800 dark:text-white tracking-tight leading-tight pt-1">
-                {selectedNews.title}
-              </h3>
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              {selectedNews.content}
-            </p>
-            <div className="pt-2">
+
+            {/* Scrollable Modal Content */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+              {/* Main Content text */}
+              <div className="prose prose-slate dark:prose-invert max-w-none text-sm text-slate-650 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {selectedPost.content}
+              </div>
+
+              {/* Action Buttons: Links / Playground */}
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/85">
+                {selectedPost.resourceId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPlayground(selectedPost.resourceId)}
+                    className="flex-1 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl text-xs font-black tracking-wide shadow-md shadow-sky-150 dark:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Abrir no Playground 🤖</span>
+                    <Icons.ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : selectedPost.hyperlink ? (
+                  <a
+                    href={selectedPost.hyperlink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl text-xs font-black tracking-wide shadow-md shadow-sky-150 dark:shadow-none transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer inline-flex"
+                  >
+                    <span>Acessar Link de Destino</span>
+                    <Icons.ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleLike(selectedPost.id)}
+                  className={`px-5 py-3 rounded-2xl text-xs font-black tracking-wide transition-all border flex items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedPost.likes?.includes(user?.name)
+                      ? 'bg-red-50 dark:bg-red-950/30 text-red-500 border-red-200/50 dark:border-red-900/50'
+                      : 'bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-800'
+                  }`}
+                >
+                  <span>{selectedPost.likes?.includes(user?.name) ? '❤️ Curtido' : '🤍 Curtir'}</span>
+                  <span className="font-mono bg-slate-200/50 dark:bg-slate-800/60 px-2 py-0.5 rounded-full text-[10px]">
+                    {selectedPost.likes?.length || 0}
+                  </span>
+                </button>
+              </div>
+
+              {/* Comments Section */}
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800/80 space-y-4">
+                <h4 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span>💬 Comentários</span>
+                  <span className="font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-0.5 rounded-full text-xs">
+                    {selectedPost.comments?.length || 0}
+                  </span>
+                </h4>
+
+                {/* Comment list */}
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                  {(selectedPost.comments || []).map((cmt: any) => (
+                    <div key={cmt.id} className="bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100/50 dark:border-slate-800/50 relative group">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono mb-1">
+                        <span className="text-slate-700 dark:text-slate-300 font-sans text-[11px] font-bold">{cmt.user}</span>
+                        <span>{cmt.timestamp}</span>
+                      </div>
+                      <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed">
+                        {cmt.content}
+                      </p>
+
+                      {/* Delete comment option for author or admin */}
+                      {(user?.role === 'ADMINISTRATOR' || user?.name === cmt.user) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteComment(selectedPost.id, cmt.id)}
+                          className="absolute top-4 right-4 p-1 hover:bg-red-500/10 text-red-400 hover:text-red-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer animate-fade-in"
+                          title="Excluir comentário"
+                        >
+                          <Icons.Trash className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {(selectedPost.comments || []).length === 0 && (
+                    <div className="text-center py-6 text-slate-400 text-xs italic">
+                      Nenhum comentário publicado ainda. Seja o primeiro a comentar!
+                    </div>
+                  )}
+                </div>
+
+                {/* Add Comment input */}
+                <div className="flex gap-2 pt-2">
+                  <input
+                    type="text"
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Escreva um comentário público..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment(selectedPost.id)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddComment(selectedPost.id)}
+                    className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-black text-xs rounded-xl flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="p-6 border-t border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end shrink-0">
               <button 
                 type="button"
-                onClick={() => setSelectedNews(null)}
-                className="w-full py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-md shadow-slate-100 dark:shadow-none cursor-pointer"
+                onClick={() => setSelectedPost(null)}
+                className="px-6 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer"
               >
                 Fechar Artigo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE POST MODAL */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden my-8 animate-slide-up">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <h3 className="text-base font-black text-slate-800 dark:text-white">Criar Nova Publicação</h3>
+              <p className="text-[11px] text-slate-500">Adicione uma novidade, tutorial ou informe a comunidade sobre atualizações.</p>
+            </div>
+
+            <form onSubmit={handleSavePost} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Título</label>
+                <input
+                  type="text"
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Ex: Luna agora integra com seu ERP de faturamento!"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Texto da Publicação</label>
+                <textarea
+                  required
+                  rows={6}
+                  value={formContent}
+                  onChange={(e) => setFormContent(e.target.value)}
+                  placeholder="Escreva todo o conteúdo de texto da sua novidade aqui..."
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 flex justify-between">
+                  <span>Descrição Resumida (Opcional)</span>
+                  <span className="text-[9px] text-slate-400 font-normal">Máx 150 caracteres</span>
+                </label>
+                <input
+                  type="text"
+                  value={formSummary}
+                  onChange={(e) => setFormSummary(e.target.value)}
+                  placeholder="Resumo curto que aparece no feed..."
+                  maxLength={150}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Imagem de Capa (URL Opcional)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formImageUrl}
+                    onChange={(e) => setFormImageUrl(e.target.value)}
+                    placeholder="Insira um link de imagem ou deixe em branco para gerar com IA"
+                    className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={triggerAiImageGeneration}
+                    disabled={isGeneratingAiImage || !formTitle.trim()}
+                    className="px-4 py-2 bg-slate-950 dark:bg-slate-800 text-white hover:bg-slate-700 text-xs font-black rounded-xl disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer transition-colors shrink-0"
+                  >
+                    {isGeneratingAiImage ? 'Gerando...' : '🪄 Gerar IA'}
+                  </button>
+                </div>
+                {formImageUrl && (
+                  <div className="relative mt-2 h-24 w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                    <img 
+                      src={formImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Hiperlink de Destino (Opcional)</label>
+                <input
+                  type="text"
+                  value={formHyperlink}
+                  onChange={(e) => setFormHyperlink(e.target.value)}
+                  placeholder="Ex: https://zucchetti.com.br"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="p-4 bg-sky-50/50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-2xl flex gap-3 text-xs text-sky-750 dark:text-sky-300">
+                <span>💡</span>
+                <p>Caso deixe a URL da Imagem em branco, a Luna IA gerará uma capa ilustrativa para o post automaticamente ao salvar.</p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 text-slate-600 dark:text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGeneratingAiImage}
+                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-black text-xs rounded-xl shadow-md shadow-sky-100 dark:shadow-none cursor-pointer disabled:opacity-50"
+                >
+                  {isGeneratingAiImage ? 'Gerando Imagem...' : 'Publicar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT POST MODAL */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden my-8 animate-slide-up">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <h3 className="text-base font-black text-slate-800 dark:text-white">Editar Publicação</h3>
+              <p className="text-[11px] text-slate-500">Altere as informações da publicação selecionada.</p>
+            </div>
+
+            <form onSubmit={handleSavePost} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Título</label>
+                <input
+                  type="text"
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Texto da Publicação</label>
+                <textarea
+                  required
+                  rows={6}
+                  value={formContent}
+                  onChange={(e) => setFormContent(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 flex justify-between">
+                  <span>Descrição Resumida</span>
+                  <span className="text-[9px] text-slate-400 font-normal">Máx 150 caracteres</span>
+                </label>
+                <input
+                  type="text"
+                  value={formSummary}
+                  onChange={(e) => setFormSummary(e.target.value)}
+                  maxLength={150}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Imagem de Capa (URL)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formImageUrl}
+                    onChange={(e) => setFormImageUrl(e.target.value)}
+                    placeholder="Insira um link de imagem ou use a geração por IA"
+                    className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={triggerAiImageGeneration}
+                    disabled={isGeneratingAiImage || !formTitle.trim()}
+                    className="px-4 py-2 bg-slate-950 dark:bg-slate-800 text-white hover:bg-slate-700 text-xs font-black rounded-xl disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer transition-colors shrink-0"
+                  >
+                    {isGeneratingAiImage ? 'Gerando...' : '🪄 Gerar IA'}
+                  </button>
+                </div>
+                {formImageUrl && (
+                  <div className="relative mt-2 h-24 w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                    <img 
+                      src={formImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Hiperlink de Destino (Opcional)</label>
+                <input
+                  type="text"
+                  value={formHyperlink}
+                  onChange={(e) => setFormHyperlink(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setPostToEdit(null);
+                  }}
+                  className="px-5 py-2.5 bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 text-slate-600 dark:text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGeneratingAiImage}
+                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-black text-xs rounded-xl shadow-md shadow-sky-100 dark:shadow-none cursor-pointer disabled:opacity-50"
+                >
+                  {isGeneratingAiImage ? 'Gerando Imagem...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -111,6 +111,8 @@ export interface Resource {
   schedulerTriggerType?: 'tool' | 'prompt';
   schedulerTriggerToolId?: string;
   schedulerTriggerPrompt?: string;
+  subagents?: string[];
+  isPublic?: boolean;
 }
 
 export interface Attachment {
