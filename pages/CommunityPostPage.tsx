@@ -75,7 +75,7 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Publicação não encontrada</h2>
           <Link to="/home" className="text-sky-600 mt-4 inline-block font-bold">Voltar ao feed</Link>
@@ -85,22 +85,7 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 pb-20 relative font-sans">
-      {/* Action floating button (if has link/resource) */}
-      {(post.resourceId || post.hyperlink) && (
-        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50">
-          <a
-            href={post.hyperlink ? post.hyperlink : `#/chat?resource=${post.resourceId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-8 py-4 bg-sky-600 hover:bg-sky-500 text-white rounded-full font-black tracking-wide shadow-2xl shadow-sky-900/40 transition-all flex items-center justify-center gap-3 cursor-pointer hover:scale-105"
-          >
-            <span>{post.resourceId ? 'Abrir no Playground 🤖' : 'Acessar Link da Matéria'}</span>
-            <Icons.ArrowRight className="w-5 h-5" />
-          </a>
-        </div>
-      )}
-
+    <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 pb-20 relative font-sans w-full">
       {/* Notion-style Cover Image */}
       <div className="w-full h-[35vh] lg:h-[40vh] bg-slate-100 dark:bg-slate-900">
         <img 
@@ -128,6 +113,21 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
         <div className="prose prose-slate dark:prose-invert max-w-none text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
           {post.content}
         </div>
+
+        {/* Action Button (Inline) */}
+        {(post.resourceId || post.hyperlink) && (
+          <div className="mt-12 flex justify-center">
+            <a
+              href={post.hyperlink ? post.hyperlink : `#/chat?resource=${post.resourceId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-8 py-4 bg-sky-600 hover:bg-sky-500 text-white rounded-full font-black tracking-wide shadow-lg shadow-sky-900/20 transition-all flex items-center justify-center gap-3 cursor-pointer hover:scale-105 w-full sm:w-auto"
+            >
+              <span>{post.resourceId ? 'Abrir no Playground 🤖' : 'Acessar Link da Matéria'}</span>
+              <Icons.ArrowRight className="w-5 h-5" />
+            </a>
+          </div>
+        )}
         
         {/* Author & Interactions Footer */}
         <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Variants } from 'motion/react';
 import { Sun, Moon } from 'lucide-react';
 import { User, UserRole } from '../types';
 
@@ -100,7 +100,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isDarkMode = fals
   };
 
   // Motion variants for letters streaming (typing effect)
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 1 },
     visible: {
       opacity: 1,
@@ -111,7 +111,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isDarkMode = fals
     },
   };
 
-  const letterVariants = {
+  const letterVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     visible: {
       opacity: 1,
@@ -124,7 +124,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isDarkMode = fals
     },
   };
 
-  const tagVariants = {
+  const tagVariants: Variants = {
     hidden: { opacity: 1 },
     visible: {
       opacity: 1,
@@ -135,7 +135,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isDarkMode = fals
     },
   };
 
-  const tagLetterVariants = {
+  const tagLetterVariants: Variants = {
     hidden: { opacity: 0, x: -6 },
     visible: {
       opacity: 1,

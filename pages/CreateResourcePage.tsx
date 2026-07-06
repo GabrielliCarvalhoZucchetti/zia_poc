@@ -9,6 +9,7 @@ import { getStoredModels } from '../services/modelsData';
 import { motion } from 'motion/react';
 import { ToolWizardModal } from '../components/ToolWizardModal';
 import { LinkToolModal } from '../components/LinkToolModal';
+import { MentionsInput, Mention } from 'react-mentions';
 
 interface TextBlock {
   type: 'title' | 'subtitle' | 'paragraph' | 'highlight' | 'list';
@@ -212,7 +213,7 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const availableSuggestions = useMemo(() => {
     const vars = [];
     resources.forEach(r => {
-      if (r.type === ResourceType.AGENT || r.type === ResourceType.SKILL || r.type === ResourceType.TOOL) {
+      if (r.type === ResourceType.AGENT || r.type === ResourceType.SKILL) {
         vars.push({ name: r.name, type: r.type, id: r.id });
       }
     });
@@ -224,6 +225,15 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   }, [resources, tools]);
 
   const filteredPromptSuggestions = availableSuggestions.filter(v => v.name.toLowerCase().includes(promptSuggestionFilter.toLowerCase()));
+
+  const mentionData = useMemo(() => {
+    return availableSuggestions.map(s => ({
+      id: s.name, // Using name as ID so the markup is easily parseable
+      display: s.name,
+      type: s.type,
+      realId: s.id
+    }));
+  }, [availableSuggestions]);
 
   const [isSubagentsExpanded, setIsSubagentsExpanded] = useState(isEditing);
   const [isVisibilityExpanded, setIsVisibilityExpanded] = useState(isEditing);
@@ -668,7 +678,7 @@ Aqui está o texto do usuário:
 
   const updatePromptSuggestions = (val: string, cursorPos: number) => {
     const textBeforeCursor = val.substring(0, cursorPos);
-    const match = textBeforeCursor.match(/\[([^\]]*)$/);
+    const match = textBeforeCursor.match(/\/([a-zA-Z0-9_ -]*)$/);
     if (match) {
       setShowPromptSuggestions(true);
       setPromptSuggestionFilter(match[1]);
@@ -1233,7 +1243,7 @@ REQUISITOS OPERACIONAIS:
                           <div className="p-6 border-t border-slate-100 space-y-4">
                             <div className="relative">
                               <select 
-                                required={createType !== ResourceType.SKILL} 
+                                required 
                                 value={projectId} 
                                 onChange={e => setProjectId(e.target.value)} 
                                 className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
@@ -1278,7 +1288,7 @@ REQUISITOS OPERACIONAIS:
                         {isTitleExpanded && (
                           <div className="p-6 border-t border-slate-100 space-y-4">
                             <input 
-                              required={createType !== ResourceType.SKILL} 
+                              required 
                               value={name} 
                               onChange={e => setName(e.target.value)} 
                               type="text" 
@@ -1333,7 +1343,7 @@ REQUISITOS OPERACIONAIS:
                               </button>
                             </div>
                             <textarea 
-                              required={createType !== ResourceType.SKILL} 
+                              required 
                               value={description} 
                               onChange={e => setDescription(e.target.value)} 
                               placeholder="Descreva o propósito deste recurso, que problemas ele resolve e qual seu público-alvo..." 
@@ -1749,33 +1759,46 @@ REQUISITOS OPERACIONAIS:
                             onClick={handlePromptSelect}
                             rows={16} 
                             placeholder={createType === ResourceType.AGENT 
-                              ? "Configure as diretrizes operacionais do agente usando a estrutura Multi-step..." 
-                              : "Ex: Você é um assistente sênior da Zucchetti especialista em..."}
+                              ? 'Configure as diretrizes operacionais. Digite "/" para acessar os comandos, tools e subagentes...' 
+                              : 'Ex: Você é um assistente... Digite "/" para variáveis.'}
                             className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
                           ></textarea>
 
                           {showPromptSuggestions && filteredPromptSuggestions.length > 0 && (
-                            <div className="absolute z-50 left-5 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden max-h-64 overflow-y-auto">
-                              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Inserir Variável
+                            <div className="absolute z-50 left-5 top-full mt-2 max-w-xs w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-top-2 duration-150">
+                              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                Inserir Comando ou Variável
                               </div>
-                              {filteredPromptSuggestions.map(s => (
-                                <button
-                                  key={s.id}
-                                  type="button"
-                                  onClick={() => insertPromptSuggestion(s.name)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50 last:border-0"
-                                >
-                                  {s.type === 'TOOL' ? (
-                                    <Wrench className="w-3.5 h-3.5 text-orange-500" />
-                                  ) : s.type === ResourceType.AGENT ? (
-                                    <Bot className="w-3.5 h-3.5 text-indigo-500" />
-                                  ) : (
-                                    <Lightbulb className="w-3.5 h-3.5 text-emerald-500" />
-                                  )}
-                                  <span className="font-semibold text-slate-700 truncate">{s.name}</span>
-                                </button>
-                              ))}
+                              <div className="max-h-52 overflow-y-auto py-1">
+                                {filteredPromptSuggestions.map(s => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => insertPromptSuggestion(s.name)}
+                                    className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                  >
+                                    {s.type === 'TOOL' ? (
+                                      <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                                        <Wrench className="w-4 h-4 text-orange-600" />
+                                      </div>
+                                    ) : s.type === ResourceType.AGENT ? (
+                                      <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                        <Bot className="w-4 h-4 text-indigo-600" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                        <Lightbulb className="w-4 h-4 text-emerald-600" />
+                                      </div>
+                                    )}
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-700 truncate">{s.name}</span>
+                                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                                        {s.type === 'TOOL' ? 'Ferramenta' : s.type === ResourceType.AGENT ? 'Subagente' : 'Skill'}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
