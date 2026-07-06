@@ -16,6 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
     { path: '/chat', label: 'Playground', icon: <Icons.Chat /> },
     { path: '/apps', label: 'Aplicações', icon: <Icons.Apps /> },
     { path: '/resources', label: 'Gestão de Recursos', icon: <Icons.AgentBuilder /> },
+    { path: '/models', label: 'Lista de Modelos', icon: <Icons.Cpu /> },
     { path: '/lab', label: 'Laboratório', icon: <Icons.Lab /> },
     { path: '/luna-monitoring', label: 'Monitoramento', icon: <Icons.Users /> },
     { path: '/audit', label: 'Auditoria', icon: <Icons.Search /> },

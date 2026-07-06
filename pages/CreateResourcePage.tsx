@@ -1,9 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User, Project, Tool, ToolType, ToolParameter } from '../types';
+import { Resource, ResourceType, AgentType, UserRole, ResourceEnvironment, User, Project, Tool, ToolType, ToolParameter, LLMModel } from '../types';
 import { Icons } from '../constants';
+import { Wrench, Bot, Lightbulb } from 'lucide-react';
 import { generateAgentResponse } from '../services/geminiService';
+import { getStoredModels } from '../services/modelsData';
 import { motion } from 'motion/react';
 import { ToolWizardModal } from '../components/ToolWizardModal';
 import { LinkToolModal } from '../components/LinkToolModal';
@@ -187,6 +189,13 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [requiredRole, setRequiredRole] = useState<UserRole>(UserRole.INTERMEDIATE);
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState('Gemini 1.5 Flash');
+  const [availableModels, setAvailableModels] = useState<LLMModel[]>([]);
+  const [lunaRecommendationReason, setLunaRecommendationReason] = useState<string>('');
+  const [isGeneratingRecommendation, setIsGeneratingRecommendation] = useState<boolean>(false);
+
+  useEffect(() => {
+    setAvailableModels(getStoredModels());
+  }, []);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookHeaders, setWebhookHeaders] = useState('');
   const [webhookBody, setWebhookBody] = useState('');
@@ -194,6 +203,27 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [resourceEnvironment, setResourceEnvironment] = useState<ResourceEnvironment>(ResourceEnvironment.STAGING);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+
+  const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
+  const [promptSuggestionFilter, setPromptSuggestionFilter] = useState('');
+  const [suggestionCursorPosition, setSuggestionCursorPosition] = useState(0);
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const availableSuggestions = useMemo(() => {
+    const vars = [];
+    resources.forEach(r => {
+      if (r.type === ResourceType.AGENT || r.type === ResourceType.SKILL || r.type === ResourceType.TOOL) {
+        vars.push({ name: r.name, type: r.type, id: r.id });
+      }
+    });
+    tools.forEach(t => {
+      vars.push({ name: t.name, type: 'TOOL', id: t.id });
+    });
+    // Remove duplicates by ID
+    return Array.from(new Map(vars.map(v => [v.id, v])).values());
+  }, [resources, tools]);
+
+  const filteredPromptSuggestions = availableSuggestions.filter(v => v.name.toLowerCase().includes(promptSuggestionFilter.toLowerCase()));
 
   const [isSubagentsExpanded, setIsSubagentsExpanded] = useState(isEditing);
   const [isVisibilityExpanded, setIsVisibilityExpanded] = useState(isEditing);
@@ -533,18 +563,89 @@ Aqui está o texto do usuário:
     }
   }, [createType]);
 
-  // Recommend model LLM when prompt and identification are filled
-  useEffect(() => {
-    if (createType === ResourceType.AGENT) {
-      const isPromptFilled = prompt.trim() !== '' && 
-                             !prompt.includes('[domínio]') && 
-                             !prompt.includes('[Descrição clara]');
-      const isNameFilled = name.trim() !== '';
-      if (isPromptFilled && isNameFilled) {
-        setModel('claude-sonnet-4-6');
+  const suggestModelWithLuna = async () => {
+    const isPromptFilled = prompt.trim() !== '' && prompt.trim() !== DEFAULT_AGENT_PROMPT_TEMPLATE;
+    const isDescriptionFilled = description.trim() !== '';
+    if (!isPromptFilled || !isDescriptionFilled) return;
+    
+    setIsGeneratingRecommendation(true);
+    try {
+      const modelsList = getStoredModels();
+      const modelsListStr = modelsList.map(m => `- ID: "${m.id}", Nome: "${m.name}", Uso Ideal: "${m.idealUse}"`).join('\n');
+      const responseText = await generateAgentResponse(
+        `Você é Luna, o assistente inteligente da Zucchetti. Analise o System Prompt e o Contexto de Negócio abaixo e escolha o ID do modelo de LLM mais adequado entre as opções disponíveis.
+        
+        System Prompt: "${prompt}"
+        Contexto de Negócio: "${description}"
+        
+        Modelos de LLM disponíveis:
+        ${modelsListStr}
+        
+        Retorne APENAS um objeto JSON no formato abaixo (sem tags de código markdown, sem aspas extras, sem explicações extras):
+        {"recommendedModelId": "id_do_modelo_escolhido", "reason": "Justificativa de no máximo 120 caracteres em português explicando por que este modelo é perfeito para este caso de uso."}
+        `,
+        [],
+        "Você é um engenheiro especialista em sugerir os melhores modelos de IA para tarefas de negócio."
+      );
+      
+      let recommendedId = '';
+      let reason = '';
+      try {
+        const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        recommendedId = parsed.recommendedModelId;
+        reason = parsed.reason;
+      } catch (e) {
+        // Fallback matching
+        const textToAnalyze = (prompt + ' ' + description).toLowerCase();
+        if (textToAnalyze.includes('código') || textToAnalyze.includes('programação') || textToAnalyze.includes('refatorar') || textToAnalyze.includes('desenvolvimento')) {
+          recommendedId = 'claude-3-5-sonnet';
+          reason = 'Recomendado por Luna pois envolve desenvolvimento de software, escrita ou revisão de código.';
+        } else if (textToAnalyze.includes('suporte') || textToAnalyze.includes('atendimento') || textToAnalyze.includes('chat') || textToAnalyze.includes('rápido')) {
+          recommendedId = 'gpt-4o-mini';
+          reason = 'Recomendado por Luna pela excelente velocidade e latência perfeita para suporte ao cliente.';
+        } else if (textToAnalyze.includes('documento') || textToAnalyze.includes('pdf') || textToAnalyze.includes('conhecimento') || textToAnalyze.includes('rag')) {
+          recommendedId = 'gemini-1-5-pro';
+          reason = 'Recomendado por Luna pela gigante janela de contexto, ideal para bases de conhecimento e PDFs.';
+        } else {
+          recommendedId = 'gpt-4o';
+          reason = 'Recomendado por Luna como modelo equilibrado e excelente para raciocínio analítico.';
+        }
       }
+      
+      const exists = modelsList.find(m => m.id === recommendedId || m.name === recommendedId);
+      if (exists) {
+        setModel(exists.name);
+      } else {
+        const matchedByName = modelsList.find(m => m.id.toLowerCase().includes(recommendedId.toLowerCase()) || m.name.toLowerCase().includes(recommendedId.toLowerCase()));
+        if (matchedByName) {
+          setModel(matchedByName.name);
+        } else {
+          setModel('GPT-4o');
+        }
+      }
+      setLunaRecommendationReason(reason);
+    } catch (err) {
+      console.error("Error generating Luna suggestion:", err);
+    } finally {
+      setIsGeneratingRecommendation(false);
     }
-  }, [prompt, name, createType]);
+  };
+
+  // Recommend model LLM when prompt and description are filled
+  useEffect(() => {
+    const isPromptFilled = prompt.trim() !== '' && 
+                           prompt.trim() !== DEFAULT_AGENT_PROMPT_TEMPLATE &&
+                           !prompt.includes('[domínio]') && 
+                           !prompt.includes('[Descrição clara]');
+    const isDescriptionFilled = description.trim() !== '';
+    if (isPromptFilled && isDescriptionFilled && !isEditing) {
+      const timer = setTimeout(() => {
+        suggestModelWithLuna();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [prompt, description, isEditing]);
 
   const handleImproveDescription = async () => {
     if (!description.trim()) return;
@@ -563,6 +664,50 @@ Aqui está o texto do usuário:
     } finally {
       setIsImprovingDescription(false);
     }
+  };
+
+  const updatePromptSuggestions = (val: string, cursorPos: number) => {
+    const textBeforeCursor = val.substring(0, cursorPos);
+    const match = textBeforeCursor.match(/\[([^\]]*)$/);
+    if (match) {
+      setShowPromptSuggestions(true);
+      setPromptSuggestionFilter(match[1]);
+      setSuggestionCursorPosition(cursorPos - match[1].length);
+    } else {
+      setShowPromptSuggestions(false);
+    }
+  };
+
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setPrompt(val);
+    updatePromptSuggestions(val, e.target.selectionStart);
+  };
+
+  const handlePromptSelect = (e: React.SyntheticEvent<HTMLTextAreaElement, Event>) => {
+    updatePromptSuggestions(e.currentTarget.value, e.currentTarget.selectionStart);
+  };
+
+  const insertPromptSuggestion = (suggestionName: string) => {
+    const val = promptTextareaRef.current?.value || prompt;
+    const cursorPos = promptTextareaRef.current?.selectionStart || suggestionCursorPosition;
+    
+    // Replace the part from `[` up to cursor
+    const beforeBracket = val.substring(0, suggestionCursorPosition - 1);
+    const afterCursor = val.substring(cursorPos);
+    
+    const newPrompt = beforeBracket + '[' + suggestionName + ']' + afterCursor;
+    setPrompt(newPrompt);
+    setShowPromptSuggestions(false);
+    
+    // Restore focus and cursor
+    setTimeout(() => {
+      if (promptTextareaRef.current) {
+        promptTextareaRef.current.focus();
+        const newPos = beforeBracket.length + suggestionName.length + 2;
+        promptTextareaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
   };
 
   const handleImprovePrompt = async () => {
@@ -643,10 +788,10 @@ Aqui está o texto do usuário:
         linkedDocs,
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
-        schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
+        schedulerEnabled: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? schedulerEnabled : undefined,
+        schedulerPeriodicity: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && schedulerEnabled ? schedulerPeriodicity : undefined,
         subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
-        isPublic: createType === ResourceType.AGENT ? isPublic : undefined
+        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined
       });
     } else {
       onCreateResource({
@@ -664,10 +809,10 @@ Aqui está o texto do usuário:
         linkedDocs,
         tools: linkedToolIds,
         environment: createType === ResourceType.SKILL ? ResourceEnvironment.STAGING : resourceEnvironment,
-        schedulerEnabled: createType === ResourceType.AGENT ? schedulerEnabled : undefined,
-        schedulerPeriodicity: createType === ResourceType.AGENT && schedulerEnabled ? schedulerPeriodicity : undefined,
+        schedulerEnabled: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? schedulerEnabled : undefined,
+        schedulerPeriodicity: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && schedulerEnabled ? schedulerPeriodicity : undefined,
         subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
-        isPublic: createType === ResourceType.AGENT ? isPublic : undefined
+        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined
       });
     }
     navigate('/resources');
@@ -1223,33 +1368,117 @@ REQUISITOS OPERACIONAIS:
 
                           {isModelExpanded && (
                             <div className="p-6 border-t border-slate-100 space-y-4">
-                              <div className="relative">
-                                <select 
-                                  value={model} 
-                                  onChange={e => setModel(e.target.value)}
-                                  className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
-                                >
-                                  {createType === ResourceType.AGENT && (
-                                    <optgroup label="Recomendado para Agentes">
-                                      <option value="claude-sonnet-4-6">claude-sonnet-4-6 (recomendado)</option>
-                                    </optgroup>
-                                  )}
-                                  <optgroup label="OpenAI">
-                                    <option value="GPT-4o">GPT-4o</option>
-                                    <option value="GPT-4o-mini">GPT-4o mini</option>
-                                  </optgroup>
-                                  <optgroup label="Google">
-                                    <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
-                                    <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
-                                  </optgroup>
-                                  <optgroup label="Anthropic">
-                                    <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
-                                    <option value="Claude 3 Haiku">Claude 3 Haiku</option>
-                                    <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-                                  </optgroup>
-                                </select>
-                                <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                              </div>
+                              {(() => {
+                                const isModelConfigurable = isEditing || (prompt.trim() !== '' && prompt.trim() !== DEFAULT_AGENT_PROMPT_TEMPLATE && description.trim() !== '');
+                                if (!isModelConfigurable) {
+                                  return (
+                                    <div className="flex flex-col items-center justify-center text-center py-6 space-y-3 animate-in fade-in duration-200">
+                                      <div className="w-12 h-12 bg-slate-50 border border-slate-150 rounded-2xl flex items-center justify-center text-slate-400 shadow-inner">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                        </svg>
+                                      </div>
+                                      <div className="text-xs font-extrabold text-slate-700">🔒 Configuração de Modelo Bloqueada</div>
+                                      <p className="text-[11px] text-slate-500 leading-relaxed font-semibold max-w-sm">
+                                        O modelo de IA só pode ser definido depois do preenchimento completo do <strong className="text-indigo-600">System Prompt</strong> e do <strong className="text-indigo-600">Contexto de Negócio</strong>.
+                                      </p>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[10px] font-black text-indigo-500 uppercase tracking-wider">Engine Inteligente</label>
+                                      <button
+                                        type="button"
+                                        disabled={isGeneratingRecommendation}
+                                        onClick={suggestModelWithLuna}
+                                        className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-150/40 bg-white px-2.5 py-1 rounded-lg transition-all shadow-sm cursor-pointer"
+                                      >
+                                        {isGeneratingRecommendation ? (
+                                          <Icons.Loader className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <Icons.Sparkles className="w-3.5 h-3.5" />
+                                        )}
+                                        <span>Sugerir com Luna</span>
+                                      </button>
+                                    </div>
+
+                                    {/* Luna Recommendation Box */}
+                                    {isGeneratingRecommendation ? (
+                                      <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center gap-3 animate-pulse">
+                                        <Icons.Loader className="w-4 h-4 text-indigo-500 animate-spin shrink-0" />
+                                        <span className="text-[11px] font-bold text-indigo-700">Luna está analisando seu Prompt e Contexto para recomendar o modelo ideal...</span>
+                                      </div>
+                                    ) : lunaRecommendationReason ? (
+                                      <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-indigo-100/50 flex items-start gap-3">
+                                        <div className="w-7 h-7 bg-indigo-500 text-white rounded-lg flex items-center justify-center shrink-0 shadow-sm text-xs font-bold">
+                                          🤖
+                                        </div>
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">SUGESTÃO DO LUNA</span>
+                                          <p className="text-xs font-medium text-slate-750 leading-relaxed">
+                                            {lunaRecommendationReason} <span className="text-[10px] text-indigo-500 font-bold block mt-1">(O modelo foi configurado e sugerido automaticamente. Sinta-se livre para alterar abaixo se preferir!)</span>
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                                        <div className="w-7 h-7 bg-slate-250 text-slate-650 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold">
+                                          💡
+                                        </div>
+                                        <div className="space-y-0.5">
+                                          <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block">RECOMENDAÇÃO AUTOMÁTICA</span>
+                                          <p className="text-xs font-medium text-slate-600 leading-relaxed">
+                                            O Luna sugeriu automaticamente um modelo ideal com base no seu System Prompt e Contexto. Você pode selecionar outra engine abaixo se desejar.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="relative">
+                                      <select 
+                                        value={model} 
+                                        onChange={e => setModel(e.target.value)}
+                                        className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
+                                      >
+                                        {availableModels.length > 0 ? (
+                                          (Object.entries(
+                                            availableModels.reduce((acc, m) => {
+                                              if (!acc[m.provider]) acc[m.provider] = [];
+                                              acc[m.provider].push(m);
+                                              return acc;
+                                            }, {} as Record<string, LLMModel[]>)
+                                          ) as [string, LLMModel[]][]).map(([provider, providerModels]) => (
+                                            <optgroup key={provider} label={provider}>
+                                              {providerModels.map(m => (
+                                                <option key={m.id} value={m.name}>{m.name}</option>
+                                              ))}
+                                            </optgroup>
+                                          ))
+                                        ) : (
+                                          <>
+                                            <optgroup label="Google">
+                                              <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
+                                              <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
+                                            </optgroup>
+                                            <optgroup label="OpenAI">
+                                              <option value="GPT-4o">GPT-4o</option>
+                                              <option value="GPT-4o-mini">GPT-4o mini</option>
+                                            </optgroup>
+                                            <optgroup label="Anthropic">
+                                              <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
+                                              <option value="Claude 3 Haiku">Claude 3 Haiku</option>
+                                            </optgroup>
+                                          </>
+                                        )}
+                                      </select>
+                                      <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>
@@ -1509,16 +1738,71 @@ REQUISITOS OPERACIONAIS:
                             </button>
                           </div>
                         </div>
-                        <textarea 
-                          required 
-                          value={prompt} 
-                          onChange={e => setPrompt(e.target.value)} 
-                          rows={16} 
-                          placeholder={createType === ResourceType.AGENT 
-                            ? "Configure as diretrizes operacionais do agente usando a estrutura Multi-step..." 
-                            : "Ex: Você é um assistente sênior da Zucchetti especialista em..."}
-                          className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
-                        ></textarea>
+                        <div className="relative">
+                          <textarea 
+                            required 
+                            ref={promptTextareaRef}
+                            value={prompt} 
+                            onChange={handlePromptChange}
+                            onSelect={handlePromptSelect}
+                            onKeyUp={handlePromptSelect}
+                            onClick={handlePromptSelect}
+                            rows={16} 
+                            placeholder={createType === ResourceType.AGENT 
+                              ? "Configure as diretrizes operacionais do agente usando a estrutura Multi-step..." 
+                              : "Ex: Você é um assistente sênior da Zucchetti especialista em..."}
+                            className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
+                          ></textarea>
+
+                          {showPromptSuggestions && filteredPromptSuggestions.length > 0 && (
+                            <div className="absolute z-50 left-5 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden max-h-64 overflow-y-auto">
+                              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Inserir Variável
+                              </div>
+                              {filteredPromptSuggestions.map(s => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => insertPromptSuggestion(s.name)}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50 last:border-0"
+                                >
+                                  {s.type === 'TOOL' ? (
+                                    <Wrench className="w-3.5 h-3.5 text-orange-500" />
+                                  ) : s.type === ResourceType.AGENT ? (
+                                    <Bot className="w-3.5 h-3.5 text-indigo-500" />
+                                  ) : (
+                                    <Lightbulb className="w-3.5 h-3.5 text-emerald-500" />
+                                  )}
+                                  <span className="font-semibold text-slate-700 truncate">{s.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* RF - Ajustar Item 3 de Critério de Parada */}
+                        {createType === ResourceType.AGENT && linkedSkills.length > 0 && prompt.includes('[skill_artefato]') && (
+                          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-150 flex items-center justify-between gap-4 mt-3 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg">🤖</span>
+                              <div className="space-y-0.5 text-left">
+                                <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest block">Ajuste de Critério de Parada (Luna)</span>
+                                <p className="text-xs font-semibold text-slate-700 leading-normal">
+                                  Deseja preencher o <strong className="text-emerald-700">Item 3 do Critério de Parada</strong> no System Prompt usando a Skill vinculada <strong className="text-emerald-800">"{linkedSkills[0].name}"</strong>?
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPrompt(prev => prev.replace('[skill_artefato]', linkedSkills[0].name));
+                              }}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-100 transition-all cursor-pointer shrink-0"
+                            >
+                              Preencher Item 3
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2116,7 +2400,7 @@ REQUISITOS OPERACIONAIS:
               )}
 
               {/* COMPONENTE AGENDADOR E VISIBILIDADE - RF01 */}
-              {createType === ResourceType.AGENT && (
+              {[ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && (
                 <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                   {/* ACCORDION: Visibilidade */}
                   <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all font-sans">

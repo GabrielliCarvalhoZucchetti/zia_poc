@@ -18,6 +18,8 @@ import ItauLeadUploadPage from './pages/ItauLeadUploadPage';
 import ZnoteLayout from './pages/znote/ZnoteLayout';
 import CreateResourcePage from './pages/CreateResourcePage';
 import { LoginPage } from './pages/LoginPage';
+import ModelsPage from './pages/ModelsPage';
+import CommunityPostPage from './pages/CommunityPostPage';
 
 const INITIAL_TOOLS: Tool[] = [
   {
@@ -850,6 +852,8 @@ const AppInner: React.FC = () => {
                 )
               } />
               <Route path="/apps" element={<div className="flex-1 overflow-y-auto bg-slate-50"><AppsPage /></div>} />
+              <Route path="/models" element={<ModelsPage />} />
+              <Route path="/community/:id" element={<CommunityPostPage user={user} />} />
               <Route path="/whatsapp-monitor" element={<WhatsAppMonitorPage />} />
               <Route path="/itau-upload" element={<ItauLeadUploadPage />} />
               <Route path="/znote/*" element={<ZnoteLayout />} />

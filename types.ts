@@ -218,6 +218,35 @@ export interface ApiKey {
   usageCount: number;
 }
 
+export interface PreferredUseCase {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface LLMModel {
+  id: string;
+  name: string;
+  provider: string;
+  isPublic: boolean;
+  preferredUseCaseId: string; // References PreferredUseCase
+  tokenLimitPerMonth: number;
+  idealUse: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  benchmarks: {
+    reasoning: number;
+    coding: number;
+    speed: number;
+    costEfficiency: number;
+  };
+  lunaConsumption: {
+    totalCalls: number;
+    tokensConsumed: number;
+    estimatedCost: number;
+  };
+}
+
 export interface UserUsage {
   id: string;
   name: string;
