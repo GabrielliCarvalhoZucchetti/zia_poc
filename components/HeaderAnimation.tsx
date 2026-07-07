@@ -93,7 +93,7 @@ export const CharacterSVG: React.FC<CharacterProps> = ({ isWalking, action }) =>
         x1="17" y1="43" x2="15" y2="62"
         stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round"
         style={{ originX: '17px', originY: '43px' }}
-        animate={legLeftAnim}
+        animate={legLeftAnim as any}
         className="stroke-slate-800"
       />
 
@@ -102,7 +102,7 @@ export const CharacterSVG: React.FC<CharacterProps> = ({ isWalking, action }) =>
         x1="23" y1="43" x2="25" y2="62"
         stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round"
         style={{ originX: '23px', originY: '43px' }}
-        animate={legRightAnim}
+        animate={legRightAnim as any}
         className="stroke-slate-800"
       />
     </svg>
@@ -190,7 +190,7 @@ export const AstronautSVG: React.FC<CharacterProps> = ({ isWalking, action }) =>
         x1="17" y1="46" x2="15" y2="65"
         stroke="#cbd5e1" strokeWidth="6" strokeLinecap="round"
         style={{ originX: '17px', originY: '46px' }}
-        animate={legLeftAnim}
+        animate={legLeftAnim as any}
         className="stroke-slate-700"
       />
 
@@ -199,7 +199,7 @@ export const AstronautSVG: React.FC<CharacterProps> = ({ isWalking, action }) =>
         x1="27" y1="46" x2="29" y2="65"
         stroke="#cbd5e1" strokeWidth="6" strokeLinecap="round"
         style={{ originX: '27px', originY: '46px' }}
-        animate={legRightAnim}
+        animate={legRightAnim as any}
         className="stroke-slate-700"
       />
     </svg>

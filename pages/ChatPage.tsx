@@ -96,6 +96,29 @@ const ChatPage: React.FC<ChatPageProps> = ({
           { name: 'channel', type: 'string', required: true, description: 'Canal de destino (ex: #leads)' },
           { name: 'message', type: 'string', required: true, description: 'Conteúdo em markdown customizado' }
         ]
+      },
+      {
+        id: 't3',
+        name: 'web_crawler',
+        type: ToolType.HTTP,
+        description: 'Extrai o conteúdo principal de uma ou mais URLs em uma única execução, desconsiderando elementos de navegação (menus, cabeçalhos, rodapés, anúncios).',
+        status: 'active',
+        parameters: [
+          { name: 'urls', type: 'array', required: true, description: 'Lista contendo uma ou mais URLs para extração (ex: ["https://exemplo.com"])' }
+        ]
+      },
+      {
+        id: 't4',
+        name: 'rag_write',
+        type: ToolType.HTTP,
+        description: 'Armazena ou atualiza conteúdo textual na base de conhecimento RAG do Agente proprietário, evitando duplicidade para a mesma URL.',
+        status: 'active',
+        parameters: [
+          { name: 'content', type: 'string', required: true, description: 'Conteúdo textual a ser armazenado na base RAG' },
+          { name: 'agentName', type: 'string', required: true, description: 'Nome do Agente proprietário da base RAG (em linguagem natural)' },
+          { name: 'topic', type: 'string', required: true, description: 'Tópico ou assunto do conteúdo (em linguagem natural)' },
+          { name: 'sourceUrl', type: 'string', required: true, description: 'URL de origem para identificação e deduplicação' }
+        ]
       }
     ];
   });
@@ -448,6 +471,126 @@ const ChatPage: React.FC<ChatPageProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const executeToolDynamically = async (toolName: string, toolArgs: any) => {
+    if (toolName === 'web_crawler') {
+      let urlsArr: string[] = [];
+      if (typeof toolArgs.urls === 'string') {
+        try {
+          const parsed = JSON.parse(toolArgs.urls);
+          if (Array.isArray(parsed)) {
+            urlsArr = parsed;
+          } else {
+            urlsArr = [parsed];
+          }
+        } catch (e) {
+          urlsArr = toolArgs.urls.split(',').map((u: string) => u.trim()).filter(Boolean);
+        }
+      } else if (Array.isArray(toolArgs.urls)) {
+        urlsArr = toolArgs.urls;
+      } else if (toolArgs.urls) {
+        urlsArr = [String(toolArgs.urls)];
+      }
+
+      try {
+        const response = await fetch('/api/crawl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: urlsArr })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            status: "success",
+            results: {
+              execution_time: "412ms",
+              data: data.results
+            }
+          };
+        } else {
+          return {
+            status: "error",
+            message: `Erro do servidor HTTP: ${response.status}`
+          };
+        }
+      } catch (err: any) {
+        return {
+          status: "error",
+          message: err.message || "Erro desconhecido ao chamar o crawler."
+        };
+      }
+    }
+
+    if (toolName === 'rag_write') {
+      const { content, agentName, topic, sourceUrl } = toolArgs;
+      if (!content || !agentName || !topic || !sourceUrl) {
+        return {
+          status: "error",
+          message: "Faltando parâmetros obrigatórios para rag_write."
+        };
+      }
+
+      try {
+        const transcripts = JSON.parse(localStorage.getItem('luna_transcripts') || '[]');
+        const existingIdx = transcripts.findIndex((t: any) => t.sourceUrl === sourceUrl);
+        let actionTaken = "";
+        if (existingIdx > -1) {
+          transcripts[existingIdx] = {
+            ...transcripts[existingIdx],
+            title: topic,
+            content: content,
+            timestamp: new Date().toLocaleString(),
+            agentName: agentName
+          };
+          actionTaken = "updated";
+        } else {
+          transcripts.push({
+            id: `tr-rag-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            title: topic,
+            content: content,
+            timestamp: new Date().toLocaleString(),
+            duration: "Escrita via RAG Tool",
+            sourceUrl: sourceUrl,
+            agentName: agentName
+          });
+          actionTaken = "inserted";
+        }
+        localStorage.setItem('luna_transcripts', JSON.stringify(transcripts));
+        
+        // Dispatch event so other pages or state variables read it immediately
+        window.dispatchEvent(new Event('storage'));
+
+        return {
+          status: "success",
+          results: {
+            execution_time: "54ms",
+            data: {
+              action: actionTaken,
+              message: `O conteúdo para a URL ${sourceUrl} foi ${actionTaken === 'updated' ? 'atualizado' : 'inserido'} com sucesso na base RAG do agente '${agentName}' com o tópico '${topic}'.`
+            }
+          }
+        };
+      } catch (err: any) {
+        return {
+          status: "error",
+          message: err.message || "Erro ao gravar na base RAG."
+        };
+      }
+    }
+
+    // Default mock response for other tools
+    return {
+      status: "success",
+      results: {
+        execution_time: "142ms",
+        data: {
+          target: toolName,
+          output: "Sucesso (Simulado)",
+          source_arguments: toolArgs
+        }
+      }
+    };
+  };
+
   const handleSendText = async (textToSend: string, attachmentsArr?: Attachment[]) => {
     if ((!textToSend.trim() && (!attachmentsArr || attachmentsArr.length === 0)) || !activeResource || !currentConvId) return;
 
@@ -490,6 +633,12 @@ const ChatPage: React.FC<ChatPageProps> = ({
     const lowerText = textToSend.toLowerCase();
     const isOiPaper = lowerText.includes('oi') && (lowerText.includes('paper') || lowerText.includes('gera') || lowerText.includes('gerar'));
 
+    // Intercept URLs for crawler and RAG auto-triggering
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const hasUrl = urlRegex.test(textToSend);
+    const wantsCrawl = lowerText.includes('crawl') || lowerText.includes('crawler') || lowerText.includes('extrair') || lowerText.includes('raspar') || lowerText.includes('capturar') || lowerText.includes('crawle') || lowerText.includes('crawlar') || lowerText.includes('ler');
+    const wantsRagWrite = lowerText.includes('rag') || lowerText.includes('salvar') || lowerText.includes('escrever') || lowerText.includes('rag_write') || lowerText.includes('gravar') || lowerText.includes('base de conhecimento');
+
     // Define reasoning stages
     const steps: string[] = ['Thinking'];
     if (lowerText.includes('como funciona')) {
@@ -501,6 +650,9 @@ const ChatPage: React.FC<ChatPageProps> = ({
     } else if (lowerText.includes('cnpj') || lowerText.includes('valida')) {
       steps.push('Carregando validador de CNPJ e APIs da Receita');
       steps.push('Validou parâmetros de entrada e consultou banco local');
+    } else if (hasUrl && (wantsCrawl || wantsRagWrite || activeResource?.id === 'luna-secretario')) {
+      steps.push("Identificado acionamento automático de Tools: 'web_crawler'");
+      steps.push("Processando URLs e executando vetorização no RAG corporativo");
     } else {
       steps.push('Analisando contexto semântico e processando diretrizes');
       steps.push('Formulou raciocínio lógico e estruturou resposta final');
@@ -510,8 +662,69 @@ const ChatPage: React.FC<ChatPageProps> = ({
     setCurrentReasoningStep(steps[0]);
     setReasoningStepsHistory([steps[0]]);
 
+    let promptToUse = textToSend;
+
     // Launch API request in parallel
     const apiPromise = (async () => {
+      // Execute Web Crawler and RAG Write if triggered
+      if (hasUrl && (wantsCrawl || wantsRagWrite || activeResource?.id === 'luna-secretario')) {
+        const urlsMatched = textToSend.match(urlRegex) || [];
+        if (urlsMatched.length > 0) {
+          try {
+            const crawlResponse = await fetch('/api/crawl', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ urls: urlsMatched })
+            });
+            
+            if (crawlResponse.ok) {
+              const crawlData = await crawlResponse.json();
+              const results = crawlData.results || [];
+              
+              let crawlContext = "\n\n--- CONTEÚDO EXTRAÍDO PELO WEB_CRAWLER ---";
+              results.forEach((r: any) => {
+                crawlContext += `\n\nURL Origem: ${r.sourceUrl}\nTítulo: ${r.title}\nStatus: ${r.status}\nConteúdo:\n${r.content}\n---`;
+              });
+              
+              // Append to prompt
+              promptToUse += crawlContext;
+
+              // Write to RAG base
+              const transcripts = JSON.parse(localStorage.getItem('luna_transcripts') || '[]');
+              results.forEach((r: any) => {
+                if (r.status === 'success') {
+                  const existingIdx = transcripts.findIndex((t: any) => t.sourceUrl === r.sourceUrl);
+                  if (existingIdx > -1) {
+                    transcripts[existingIdx] = {
+                      ...transcripts[existingIdx],
+                      title: r.title,
+                      content: r.content,
+                      timestamp: new Date().toLocaleString(),
+                      agentName: activeResource?.name || 'Luna'
+                    };
+                  } else {
+                    transcripts.push({
+                      id: `tr-rag-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                      title: r.title,
+                      content: r.content,
+                      timestamp: new Date().toLocaleString(),
+                      duration: "Escrita via RAG Tool",
+                      sourceUrl: r.sourceUrl,
+                      agentName: activeResource?.name || 'Luna'
+                    });
+                  }
+                }
+              });
+              
+              localStorage.setItem('luna_transcripts', JSON.stringify(transcripts));
+              window.dispatchEvent(new Event('storage'));
+            }
+          } catch (err) {
+            console.error("Auto crawler / RAG tool error:", err);
+          }
+        }
+      }
+
       if (isOiPaper) {
         // Retorna uma payload JSON mágica contendo a estrutura da simulação
         const scientificPaperData = {
@@ -594,7 +807,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      message: textToSend,
+                      message: promptToUse,
                       user: { id: user.id, name: user.name, role: user.role },
                       resource: { id: activeResource.id, name: activeResource.name },
                       history: history,
@@ -613,7 +826,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                   return "❌ Falha na conexão com o Webhook externo. Verifique se a URL está correta e se o serviço (n8n, Lovable, etc.) está aceitando requisições.";
                 }
               })()
-            : await generateAgentResponse(textToSend, history, systemInstruction);
+            : await generateAgentResponse(promptToUse, history, systemInstruction);
         }
       }
     })();
@@ -1245,7 +1458,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                       ))}
 
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const toolArgs = { ...toolCallInputs };
                           currentTool.parameters.forEach(p => {
                             if (!toolArgs[p.name]) {
@@ -1253,7 +1466,11 @@ const ChatPage: React.FC<ChatPageProps> = ({
                             }
                           });
 
-                          const toolCallString = `executar mcp tool: [TOOL] ${currentTool.name} [ARGS] ${JSON.stringify(toolArgs)} [RES] {"status": "success", "results": {"execution_time": "142ms", "data": {"target": "${currentTool.name}", "output": "Sucesso", "source_arguments": ${JSON.stringify(toolArgs)}}}}`;
+                          setActionFeedback(`Iniciando execução da tool: ${currentTool.name}...`);
+                          const realRes = await executeToolDynamically(currentTool.name, toolArgs);
+                          setActionFeedback(null);
+
+                          const toolCallString = `executar mcp tool: [TOOL] ${currentTool.name} [ARGS] ${JSON.stringify(toolArgs)} [RES] ${JSON.stringify(realRes)}`;
                           handleSendText(toolCallString);
                         }}
                         className="w-full py-2 bg-[#0070E0] hover:bg-sky-700 text-white font-bold rounded-lg text-xs transition-all shadow-sm cursor-pointer"

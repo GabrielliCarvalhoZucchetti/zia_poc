@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Icons } from '../constants';
 import { User } from '../types';
@@ -22,6 +22,30 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
     resourceId: '',
     hyperlink: ''
   });
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const applyFormatting = (prefix: string, suffix: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = editForm.content;
+    const selectedText = text.substring(start, end);
+    
+    const replacement = prefix + (selectedText || 'texto') + suffix;
+    const newContent = text.substring(0, start) + replacement + text.substring(end);
+    
+    setEditForm({ ...editForm, content: newContent });
+
+    // Refocus and re-select
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + prefix.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos + (selectedText || 'texto').length);
+    }, 0);
+  };
 
   useEffect(() => {
     if (id === 'new') {
@@ -156,11 +180,84 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 pb-20 relative font-sans w-full">
-      {/* Edit Overlay Actions */}
+      {/* Edit Overlay Actions with Formatting Toolbar */}
       {isEditing && (
-        <div className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between">
-          <span className="font-bold text-slate-800 dark:text-white">Modo de Edição</span>
-          <div className="flex gap-2">
+        <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm select-none">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <span className="font-bold text-slate-800 dark:text-white text-sm whitespace-nowrap">Modo de Edição</span>
+            
+            {/* Formatting Toolbar */}
+            <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => applyFormatting('**', '**')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs font-bold w-8 h-8 flex items-center justify-center cursor-pointer"
+                title="Negrito"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting('*', '*')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs italic w-8 h-8 flex items-center justify-center cursor-pointer"
+                title="Itálico"
+              >
+                I
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting('__', '__')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs underline w-8 h-8 flex items-center justify-center cursor-pointer"
+                title="Sublinhado"
+              >
+                U
+              </button>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+              <button
+                type="button"
+                onClick={() => applyFormatting('# ')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs font-black w-8 h-8 flex items-center justify-center cursor-pointer"
+                title="Título 1"
+              >
+                H1
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting('## ')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs font-black w-8 h-8 flex items-center justify-center cursor-pointer"
+                title="Título 2"
+              >
+                H2
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting('- ')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs font-bold w-12 h-8 flex items-center justify-center cursor-pointer whitespace-nowrap"
+                title="Lista"
+              >
+                • Lista
+              </button>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+              <button
+                type="button"
+                onClick={() => applyFormatting('`', '`')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-[10px] font-mono w-10 h-8 flex items-center justify-center cursor-pointer whitespace-nowrap"
+                title="Código"
+              >
+                &lt;/&gt;
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting('[Link](', ')')}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all text-xs font-semibold w-12 h-8 flex items-center justify-center cursor-pointer whitespace-nowrap"
+                title="Inserir Link"
+              >
+                Link
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 shrink-0">
             {id !== 'new' && (
               <button 
                 onClick={() => {
@@ -174,7 +271,7 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
                     hyperlink: post.hyperlink || ''
                   });
                 }}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl cursor-pointer"
               >
                 Cancelar
               </button>
@@ -182,7 +279,7 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
             <button 
               onClick={handleSaveEdit}
               disabled={!editForm.title.trim() || !editForm.content.trim()}
-              className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold rounded-xl shadow-md disabled:opacity-50"
+              className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold rounded-xl shadow-md disabled:opacity-50 cursor-pointer"
             >
               Salvar
             </button>
@@ -259,6 +356,7 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
         <div className="prose prose-slate dark:prose-invert max-w-none text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
           {isEditing ? (
             <textarea
+              ref={textareaRef}
               value={editForm.content}
               onChange={e => setEditForm({...editForm, content: e.target.value})}
               placeholder="Escreva todo o conteúdo da publicação aqui..."

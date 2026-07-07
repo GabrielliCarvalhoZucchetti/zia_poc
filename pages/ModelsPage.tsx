@@ -12,7 +12,6 @@ const ModelsPage: React.FC = () => {
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'public' | 'private'>('all');
-  const [providerFilter, setProviderFilter] = useState<string>('all');
   
   // Modals
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
@@ -86,13 +85,13 @@ const ModelsPage: React.FC = () => {
     e.stopPropagation();
     setEditingModel(model);
     setModelName(model.name);
-    setModelProvider(model.provider);
+    setModelProvider(model.provider || 'Geral');
     setModelIsPublic(model.isPublic);
     setModelPreferredUseCaseId(model.preferredUseCaseId);
     setModelTokenLimit(model.tokenLimitPerMonth);
     setModelContextWindow(model.contextWindow || 128000);
     setModelMaxOutputTokens(model.maxOutputTokens || 4096);
-    setModelIdealUse(model.idealUse);
+    setModelIdealUse(model.idealUse || '');
     setModelBenchmarkReasoning(model.benchmarks.reasoning);
     setModelBenchmarkCoding(model.benchmarks.coding);
     setModelBenchmarkSpeed(model.benchmarks.speed);
@@ -115,11 +114,11 @@ const ModelsPage: React.FC = () => {
           return {
             ...m,
             name: modelName,
-            provider: modelProvider,
+            provider: modelProvider || 'Geral',
             isPublic: modelIsPublic,
             preferredUseCaseId: modelPreferredUseCaseId,
             tokenLimitPerMonth: modelTokenLimit,
-            idealUse: modelIdealUse,
+            idealUse: modelIdealUse || '',
             contextWindow: modelContextWindow,
             maxOutputTokens: modelMaxOutputTokens,
             benchmarks: {
@@ -138,11 +137,11 @@ const ModelsPage: React.FC = () => {
       const newModel: LLMModel = {
         id: `m-${Date.now()}`,
         name: modelName,
-        provider: modelProvider,
+        provider: modelProvider || 'Geral',
         isPublic: modelIsPublic,
         preferredUseCaseId: modelPreferredUseCaseId,
         tokenLimitPerMonth: modelTokenLimit,
-        idealUse: modelIdealUse,
+        idealUse: modelIdealUse || '',
         contextWindow: modelContextWindow,
         maxOutputTokens: modelMaxOutputTokens,
         benchmarks: {
@@ -201,18 +200,13 @@ const ModelsPage: React.FC = () => {
 
   // Filter models
   const filteredModels = models.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          m.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          m.idealUse.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesVisibility = visibilityFilter === 'all' || 
                               (visibilityFilter === 'public' && m.isPublic) || 
                               (visibilityFilter === 'private' && !m.isPublic);
-    const matchesProvider = providerFilter === 'all' || m.provider === providerFilter;
     
-    return matchesSearch && matchesVisibility && matchesProvider;
+    return matchesSearch && matchesVisibility;
   });
-
-  const providers = Array.from(new Set(models.map(m => m.provider)));
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 font-sans">
@@ -222,10 +216,6 @@ const ModelsPage: React.FC = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-sky-500/10 via-transparent to-transparent"></div>
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 text-sky-400 text-xs font-bold uppercase tracking-wider mb-2">
-              <Icons.Cpu className="w-4 h-4 animate-pulse" />
-              <span>Gestão de Inteligência Artificial</span>
-            </div>
             <h1 className="text-3xl font-extrabold tracking-tight">Lista de Modelos de LLM</h1>
             <p className="text-sm text-slate-350 mt-1 max-w-2xl font-medium">
               Controle centralizado de modelos de linguagem disponíveis na Zucchetti. 
@@ -263,7 +253,7 @@ const ModelsPage: React.FC = () => {
               <Icons.Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar modelo por nome, provedor ou uso ideal..."
+                placeholder="Buscar modelo por nome..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 bg-white border border-slate-250 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all"
@@ -290,21 +280,6 @@ const ModelsPage: React.FC = () => {
                     {tab.label}
                   </button>
                 ))}
-              </div>
-
-              {/* Provider filter dropdown */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Provedor:</span>
-                <select
-                  value={providerFilter}
-                  onChange={e => setProviderFilter(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-[11px] font-bold text-slate-650 focus:outline-none focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 cursor-pointer"
-                >
-                  <option value="all">Todos</option>
-                  {providers.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>
@@ -338,7 +313,6 @@ const ModelsPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-extrabold text-xs text-slate-800">{model.name}</h3>
-                          <span className="text-[9px] font-bold text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">{model.provider}</span>
                           
                           {/* Visibility badge */}
                           {model.isPublic ? (
@@ -363,10 +337,6 @@ const ModelsPage: React.FC = () => {
                             </span>
                           </div>
                         )}
-
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-2 line-clamp-2">
-                          {model.idealUse || 'Nenhum uso ideal especificado.'}
-                        </p>
                       </div>
 
                       {/* Hover action controls */}
@@ -413,7 +383,6 @@ const ModelsPage: React.FC = () => {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-900 mt-1">{selectedModel.name}</h2>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">Provedor: {selectedModel.provider}</span>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${selectedModel.isPublic ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-indigo-700 bg-indigo-50 border border-indigo-100'}`}>
                       Visibilidade: {selectedModel.isPublic ? 'Disponível Publicamente' : 'Privado Corporativo'}
                     </span>
@@ -430,7 +399,7 @@ const ModelsPage: React.FC = () => {
               </div>
 
               {/* Detailed Specs Block */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 
                 {/* Preferred Use Case detail card */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
@@ -465,59 +434,37 @@ const ModelsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-
-                {/* Ideal Use Card */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-8 h-8 bg-sky-50 text-sky-600 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 11.517-1.272l.142-.021a.75.75 0 11.341-1.422l.143-.02a.75.75 0 111.02 1.02l-.02.143a.75.75 0 11-1.422.341l-.021.142a.75.75 0 11-1.272.517l-.02.041a.75.75 0 11-1.3-.75z"/></svg>
-                      </div>
-                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Uso Ideal Recomendado</span>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                      {selectedModel.idealUse || 'Este modelo é de aplicação geral no ecossistema Luna.'}
-                    </p>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Provedor Core:</span>
-                    <span className="text-xs font-bold text-slate-600">{selectedModel.provider}</span>
-                  </div>
-                </div>
               </div>
 
-              {/* Context and Output Card */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
-                  </div>
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Capacidade e Contexto</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Janela de Contexto</span>
-                    <span className="text-sm font-mono font-bold text-purple-700 bg-purple-100/50 px-3 py-1.5 rounded-xl border border-purple-200/50">
-                      {selectedModel.contextWindow ? selectedModel.contextWindow.toLocaleString('pt-BR') : 'N/A'} tokens
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Output Máximo</span>
-                    <span className="text-sm font-mono font-bold text-fuchsia-700 bg-fuchsia-100/50 px-3 py-1.5 rounded-xl border border-fuchsia-200/50">
-                      {selectedModel.maxOutputTokens ? selectedModel.maxOutputTokens.toLocaleString('pt-BR') : 'N/A'} tokens
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Benchmarks Section */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+              {/* Unified Benchmarks & Capacity Report Section */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v5.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 013 18.375v-5.25zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125v-9.75zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v14.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
                   </div>
-                  <h3 className="font-extrabold text-sm text-slate-800">Relatório de Benchmarks Gerais</h3>
+                  <h3 className="font-extrabold text-sm text-slate-800">Relatório de Benchmarks & Capacidade de Contexto</h3>
+                </div>
+
+                {/* Capacity indicators integrated inside benchmarks section */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-100">
+                  <div className="bg-purple-50/40 p-4 rounded-2xl border border-purple-100/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Janela de Contexto</span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-purple-700 bg-purple-100/50 px-2.5 py-1.5 rounded-xl border border-purple-200/50">
+                      {selectedModel.contextWindow ? selectedModel.contextWindow.toLocaleString('pt-BR') : 'N/A'} tokens
+                    </span>
+                  </div>
+                  <div className="bg-fuchsia-50/40 p-4 rounded-2xl border border-fuchsia-100/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-fuchsia-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Output Máximo</span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-fuchsia-700 bg-fuchsia-100/50 px-2.5 py-1 rounded-xl border border-fuchsia-200/50">
+                      {selectedModel.maxOutputTokens ? selectedModel.maxOutputTokens.toLocaleString('pt-BR') : 'N/A'} tokens
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -635,7 +582,7 @@ const ModelsPage: React.FC = () => {
               <form onSubmit={handleSaveModelSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
                 
                 {/* Basic Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Nome do Modelo *</label>
                     <input
@@ -646,22 +593,6 @@ const ModelsPage: React.FC = () => {
                       onChange={e => setModelName(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800"
                     />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Provedor *</label>
-                    <select
-                      value={modelProvider}
-                      onChange={e => setModelProvider(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800 bg-white"
-                    >
-                      <option value="Google">Google</option>
-                      <option value="OpenAI">OpenAI</option>
-                      <option value="Anthropic">Anthropic</option>
-                      <option value="Zucchetti Private">Zucchetti Private</option>
-                      <option value="Meta">Meta (Llama)</option>
-                      <option value="DeepSeek">DeepSeek</option>
-                    </select>
                   </div>
                 </div>
 
@@ -701,8 +632,8 @@ const ModelsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Token limits and Ideal Use */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Token limits */}
+                <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Limite Mensal de Tokens</label>
                     <input
@@ -710,17 +641,6 @@ const ModelsPage: React.FC = () => {
                       placeholder="Ex: 50000000"
                       value={modelTokenLimit}
                       onChange={e => setModelTokenLimit(Number(e.target.value))}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Uso Ideal (Recomendação)</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Tarefas de codificação pesada ou análise fiscal de alto volume."
-                      value={modelIdealUse}
-                      onChange={e => setModelIdealUse(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800"
                     />
                   </div>

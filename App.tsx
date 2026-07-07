@@ -20,6 +20,7 @@ import CreateResourcePage from './pages/CreateResourcePage';
 import { LoginPage } from './pages/LoginPage';
 import ModelsPage from './pages/ModelsPage';
 import CommunityPostPage from './pages/CommunityPostPage';
+import SavingCapacityPage from './pages/SavingCapacityPage';
 
 const INITIAL_TOOLS: Tool[] = [
   {
@@ -52,6 +53,44 @@ const INITIAL_TOOLS: Tool[] = [
     transportProtocol: 'SSE',
     discoveredTools: ['notifySlackChannel', 'listChannels', 'registerUser'],
     selectedDiscoveredTool: 'notifySlackChannel'
+  },
+  {
+    id: 't3',
+    name: 'web_crawler',
+    type: ToolType.HTTP,
+    description: 'Extrai o conteúdo principal de uma ou mais URLs em uma única execução, desconsiderando elementos de navegação (menus, cabeçalhos, rodapés, anúncios).',
+    status: 'active',
+    parameters: [
+      { name: 'urls', type: 'array', required: true, description: 'Lista contendo uma ou mais URLs para extração (ex: ["https://exemplo.com"])' }
+    ],
+    url: '/api/crawl',
+    method: 'POST',
+    parameterMapping: [
+      { paramName: 'urls', location: 'body' }
+    ],
+    bodyFormat: 'JSON'
+  },
+  {
+    id: 't4',
+    name: 'rag_write',
+    type: ToolType.HTTP,
+    description: 'Armazena ou atualiza conteúdo textual na base de conhecimento RAG do Agente proprietário, evitando duplicidade para a mesma URL.',
+    status: 'active',
+    parameters: [
+      { name: 'content', type: 'string', required: true, description: 'Conteúdo textual a ser armazenado na base RAG' },
+      { name: 'agentName', type: 'string', required: true, description: 'Nome do Agente proprietário da base RAG (em linguagem natural)' },
+      { name: 'topic', type: 'string', required: true, description: 'Tópico ou assunto do conteúdo (em linguagem natural)' },
+      { name: 'sourceUrl', type: 'string', required: true, description: 'URL de origem para identificação e deduplicação' }
+    ],
+    url: '/api/rag/write',
+    method: 'POST',
+    parameterMapping: [
+      { paramName: 'content', location: 'body' },
+      { paramName: 'agentName', location: 'body' },
+      { paramName: 'topic', location: 'body' },
+      { paramName: 'sourceUrl', location: 'body' }
+    ],
+    bodyFormat: 'JSON'
   }
 ];
 
@@ -856,6 +895,7 @@ const AppInner: React.FC = () => {
               <Route path="/community/:id" element={<CommunityPostPage user={user} />} />
               <Route path="/whatsapp-monitor" element={<WhatsAppMonitorPage />} />
               <Route path="/itau-upload" element={<ItauLeadUploadPage />} />
+              <Route path="/saving-capacity" element={<div className="flex-1 overflow-y-auto bg-slate-50"><SavingCapacityPage /></div>} />
               <Route path="/znote/*" element={<ZnoteLayout />} />
             </Routes>
           </main>

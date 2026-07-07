@@ -227,11 +227,11 @@ export interface PreferredUseCase {
 export interface LLMModel {
   id: string;
   name: string;
-  provider: string;
+  provider?: string;
   isPublic: boolean;
   preferredUseCaseId: string; // References PreferredUseCase
   tokenLimitPerMonth: number;
-  idealUse: string;
+  idealUse?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
   benchmarks: {

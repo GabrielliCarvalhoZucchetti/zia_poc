@@ -209,6 +209,12 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [promptSuggestionFilter, setPromptSuggestionFilter] = useState('');
   const [suggestionCursorPosition, setSuggestionCursorPosition] = useState(0);
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const highlightRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setActiveSuggestionIndex(0);
+  }, [promptSuggestionFilter, showPromptSuggestions]);
 
   const availableSuggestions = useMemo(() => {
     const vars = [];
@@ -573,6 +579,18 @@ Aqui está o texto do usuário:
     }
   }, [createType]);
 
+  const [userManuallySelected, setUserManuallySelected] = useState<boolean>(isEditing);
+  const [lastRecommendedModel, setLastRecommendedModel] = useState<string>('');
+  const [pendingRecommendation, setPendingRecommendation] = useState<{ name: string; reason: string } | null>(null);
+
+  const handleModelChange = (val: string) => {
+    setModel(val);
+    setUserManuallySelected(true);
+    if (pendingRecommendation && pendingRecommendation.name === val) {
+      setPendingRecommendation(null);
+    }
+  };
+
   const suggestModelWithLuna = async () => {
     const isPromptFilled = prompt.trim() !== '' && prompt.trim() !== DEFAULT_AGENT_PROMPT_TEMPLATE;
     const isDescriptionFilled = description.trim() !== '';
@@ -624,17 +642,32 @@ Aqui está o texto do usuário:
       }
       
       const exists = modelsList.find(m => m.id === recommendedId || m.name === recommendedId);
+      let recommendedName = '';
       if (exists) {
-        setModel(exists.name);
+        recommendedName = exists.name;
       } else {
         const matchedByName = modelsList.find(m => m.id.toLowerCase().includes(recommendedId.toLowerCase()) || m.name.toLowerCase().includes(recommendedId.toLowerCase()));
         if (matchedByName) {
-          setModel(matchedByName.name);
+          recommendedName = matchedByName.name;
         } else {
-          setModel('GPT-4o');
+          recommendedName = 'GPT-4o';
         }
       }
-      setLunaRecommendationReason(reason);
+
+      setLastRecommendedModel(recommendedName);
+
+      if (userManuallySelected) {
+        if (recommendedName !== model) {
+          setPendingRecommendation({ name: recommendedName, reason });
+        } else {
+          setPendingRecommendation(null);
+          setLunaRecommendationReason(reason);
+        }
+      } else {
+        setModel(recommendedName);
+        setLunaRecommendationReason(reason);
+        setPendingRecommendation(null);
+      }
     } catch (err) {
       console.error("Error generating Luna suggestion:", err);
     } finally {
@@ -649,13 +682,20 @@ Aqui está o texto do usuário:
                            !prompt.includes('[domínio]') && 
                            !prompt.includes('[Descrição clara]');
     const isDescriptionFilled = description.trim() !== '';
-    if (isPromptFilled && isDescriptionFilled && !isEditing) {
+    if (isPromptFilled && isDescriptionFilled) {
+      if (isEditing && editingResource) {
+        const initialPrompt = editingResource.prompt || '';
+        const initialDesc = editingResource.description || '';
+        if (prompt === initialPrompt && description === initialDesc) {
+          return;
+        }
+      }
       const timer = setTimeout(() => {
         suggestModelWithLuna();
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [prompt, description, isEditing]);
+  }, [prompt, description, isEditing, editingResource, userManuallySelected]);
 
   const handleImproveDescription = async () => {
     if (!description.trim()) return;
@@ -676,13 +716,51 @@ Aqui está o texto do usuário:
     }
   };
 
+  const renderHighlightedPrompt = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\[[^\]]+\])/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('[') && part.endsWith(']')) {
+        return (
+          <span key={index} className="text-yellow-400 font-extrabold bg-yellow-400/10 px-1 py-0.5 rounded">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   const updatePromptSuggestions = (val: string, cursorPos: number) => {
     const textBeforeCursor = val.substring(0, cursorPos);
-    const match = textBeforeCursor.match(/\/([a-zA-Z0-9_ -]*)$/);
-    if (match) {
+    const slashMatch = textBeforeCursor.match(/\/([a-zA-Z0-9_ -]*)$/);
+    const bracketMatch = textBeforeCursor.match(/\[([a-zA-Z0-9_ -]*)$/);
+    const wordMatch = textBeforeCursor.match(/([a-zA-Z0-9_\.-]+)$/);
+    
+    if (slashMatch) {
       setShowPromptSuggestions(true);
-      setPromptSuggestionFilter(match[1]);
-      setSuggestionCursorPosition(cursorPos - match[1].length);
+      setPromptSuggestionFilter(slashMatch[1]);
+      setSuggestionCursorPosition(cursorPos - slashMatch[1].length);
+    } else if (bracketMatch) {
+      setShowPromptSuggestions(true);
+      setPromptSuggestionFilter(bracketMatch[1]);
+      setSuggestionCursorPosition(cursorPos - bracketMatch[1].length);
+    } else if (wordMatch) {
+      const typedWord = wordMatch[1];
+      if (typedWord.length >= 2) {
+        const hasMatch = availableSuggestions.some(s => 
+          s.name.toLowerCase().includes(typedWord.toLowerCase())
+        );
+        if (hasMatch) {
+          setShowPromptSuggestions(true);
+          setPromptSuggestionFilter(typedWord);
+          setSuggestionCursorPosition(cursorPos - typedWord.length);
+        } else {
+          setShowPromptSuggestions(false);
+        }
+      } else {
+        setShowPromptSuggestions(false);
+      }
     } else {
       setShowPromptSuggestions(false);
     }
@@ -692,30 +770,60 @@ Aqui está o texto do usuário:
     const val = e.target.value;
     setPrompt(val);
     updatePromptSuggestions(val, e.target.selectionStart);
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = e.target.scrollTop;
+    }
   };
 
   const handlePromptSelect = (e: React.SyntheticEvent<HTMLTextAreaElement, Event>) => {
     updatePromptSuggestions(e.currentTarget.value, e.currentTarget.selectionStart);
   };
 
+  const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showPromptSuggestions && filteredPromptSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev + 1) % filteredPromptSuggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev - 1 + filteredPromptSuggestions.length) % filteredPromptSuggestions.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        insertPromptSuggestion(filteredPromptSuggestions[activeSuggestionIndex].name);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowPromptSuggestions(false);
+      }
+    }
+  };
+
   const insertPromptSuggestion = (suggestionName: string) => {
     const val = promptTextareaRef.current?.value || prompt;
     const cursorPos = promptTextareaRef.current?.selectionStart || suggestionCursorPosition;
     
-    // Replace the part from `[` up to cursor
-    const beforeBracket = val.substring(0, suggestionCursorPosition - 1);
+    let beforeBracket = val.substring(0, cursorPos);
     const afterCursor = val.substring(cursorPos);
+    
+    if (beforeBracket.endsWith('/' + promptSuggestionFilter)) {
+      beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
+    } else if (beforeBracket.endsWith('[' + promptSuggestionFilter)) {
+      beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
+    } else if (beforeBracket.endsWith(promptSuggestionFilter)) {
+      beforeBracket = beforeBracket.slice(0, -promptSuggestionFilter.length);
+    }
     
     const newPrompt = beforeBracket + '[' + suggestionName + ']' + afterCursor;
     setPrompt(newPrompt);
     setShowPromptSuggestions(false);
     
-    // Restore focus and cursor
     setTimeout(() => {
       if (promptTextareaRef.current) {
         promptTextareaRef.current.focus();
         const newPos = beforeBracket.length + suggestionName.length + 2;
         promptTextareaRef.current.setSelectionRange(newPos, newPos);
+        if (highlightRef.current) {
+          highlightRef.current.scrollTop = promptTextareaRef.current.scrollTop;
+        }
       }
     }, 0);
   };
@@ -1379,7 +1487,7 @@ REQUISITOS OPERACIONAIS:
                           {isModelExpanded && (
                             <div className="p-6 border-t border-slate-100 space-y-4">
                               {(() => {
-                                const isModelConfigurable = isEditing || (prompt.trim() !== '' && prompt.trim() !== DEFAULT_AGENT_PROMPT_TEMPLATE && description.trim() !== '');
+                                const isModelConfigurable = prompt.trim() !== '' && description.trim() !== '';
                                 if (!isModelConfigurable) {
                                   return (
                                     <div className="flex flex-col items-center justify-center text-center py-6 space-y-3 animate-in fade-in duration-200">
@@ -1395,6 +1503,8 @@ REQUISITOS OPERACIONAIS:
                                     </div>
                                   );
                                 }
+
+                                const selectedModelObj = availableModels.find(m => m.name === model || m.id === model);
 
                                 return (
                                   <div className="space-y-4 animate-in fade-in duration-200">
@@ -1415,34 +1525,42 @@ REQUISITOS OPERACIONAIS:
                                       </button>
                                     </div>
 
-                                    {/* Luna Recommendation Box */}
-                                    {isGeneratingRecommendation ? (
-                                      <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center gap-3 animate-pulse">
+                                    {isGeneratingRecommendation && (
+                                      <div className="p-3.5 rounded-xl bg-indigo-50/40 border border-indigo-100/30 flex items-center gap-2.5 animate-pulse">
                                         <Icons.Loader className="w-4 h-4 text-indigo-500 animate-spin shrink-0" />
-                                        <span className="text-[11px] font-bold text-indigo-700">Luna está analisando seu Prompt e Contexto para recomendar o modelo ideal...</span>
+                                        <span className="text-[11px] font-bold text-indigo-600">Luna está analisando seu Prompt e Contexto para recomendar o modelo ideal...</span>
                                       </div>
-                                    ) : lunaRecommendationReason ? (
-                                      <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-indigo-100/50 flex items-start gap-3">
-                                        <div className="w-7 h-7 bg-indigo-500 text-white rounded-lg flex items-center justify-center shrink-0 shadow-sm text-xs font-bold">
-                                          🤖
+                                    )}
+
+                                    {/* Alerta de nova recomendação pendente caso tenha alterado manualmente */}
+                                    {pendingRecommendation && (
+                                      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 animate-in fade-in duration-200">
+                                        <div className="w-7 h-7 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 shadow-sm text-xs font-bold">
+                                          ✨
                                         </div>
-                                        <div className="space-y-1">
-                                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">SUGESTÃO DO LUNA</span>
-                                          <p className="text-xs font-medium text-slate-750 leading-relaxed">
-                                            {lunaRecommendationReason} <span className="text-[10px] text-indigo-500 font-bold block mt-1">(O modelo foi configurado e sugerido automaticamente. Sinta-se livre para alterar abaixo se preferir!)</span>
+                                        <div className="space-y-2 flex-1">
+                                          <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest block font-extrabold">Nova Recomendação Disponível</span>
+                                          <p className="text-xs font-medium text-slate-700 leading-relaxed">
+                                            Com base nas novas alterações, o Luna agora recomenda o modelo <strong className="text-amber-800 font-bold">{pendingRecommendation.name}</strong>.
                                           </p>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-                                        <div className="w-7 h-7 bg-slate-250 text-slate-650 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold">
-                                          💡
-                                        </div>
-                                        <div className="space-y-0.5">
-                                          <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block">RECOMENDAÇÃO AUTOMÁTICA</span>
-                                          <p className="text-xs font-medium text-slate-600 leading-relaxed">
-                                            O Luna sugeriu automaticamente um modelo ideal com base no seu System Prompt e Contexto. Você pode selecionar outra engine abaixo se desejar.
-                                          </p>
+                                          {pendingRecommendation.reason && (
+                                            <p className="text-[11px] text-slate-600 italic bg-amber-100/30 p-2.5 rounded-xl border border-amber-200/20 leading-relaxed">
+                                              "{pendingRecommendation.reason}"
+                                            </p>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setModel(pendingRecommendation.name);
+                                              setLunaRecommendationReason(pendingRecommendation.reason);
+                                              setPendingRecommendation(null);
+                                              setUserManuallySelected(false);
+                                            }}
+                                            className="text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/40 border border-amber-200 px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+                                          >
+                                            <Icons.Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                                            <span>Aplicar Recomendação ({pendingRecommendation.name})</span>
+                                          </button>
                                         </div>
                                       </div>
                                     )}
@@ -1450,14 +1568,15 @@ REQUISITOS OPERACIONAIS:
                                     <div className="relative">
                                       <select 
                                         value={model} 
-                                        onChange={e => setModel(e.target.value)}
-                                        className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer"
+                                        onChange={e => handleModelChange(e.target.value)}
+                                        className="w-full px-5 py-[18px] rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-sm font-semibold text-slate-800 appearance-none transition-all cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                                       >
                                         {availableModels.length > 0 ? (
                                           (Object.entries(
                                             availableModels.reduce((acc, m) => {
-                                              if (!acc[m.provider]) acc[m.provider] = [];
-                                              acc[m.provider].push(m);
+                                              const prov = m.provider || 'Geral';
+                                              if (!acc[prov]) acc[prov] = [];
+                                              acc[prov].push(m);
                                               return acc;
                                             }, {} as Record<string, LLMModel[]>)
                                           ) as [string, LLMModel[]][]).map(([provider, providerModels]) => (
@@ -1486,6 +1605,87 @@ REQUISITOS OPERACIONAIS:
                                       </select>
                                       <Icons.ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
+
+                                    {/* Quadrinho explicativo embaixo do modelo */}
+                                    {selectedModelObj && (
+                                      <div className="p-5 rounded-2xl bg-slate-50 border border-slate-150 space-y-4 shadow-sm animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 bg-indigo-50 text-indigo-600 rounded-md flex items-center justify-center shrink-0">
+                                            <Icons.Cpu className="w-3.5 h-3.5 text-indigo-500" />
+                                          </div>
+                                          <div className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                                            Por que usar o {selectedModelObj.name}?
+                                          </div>
+                                        </div>
+
+                                        {lunaRecommendationReason && (!userManuallySelected || lastRecommendedModel === model) ? (
+                                          <div className="space-y-1.5">
+                                            <div className="flex items-center gap-1.5 text-indigo-600 text-xs font-bold">
+                                              <Icons.Check className="w-3.5 h-3.5 text-emerald-500" />
+                                              <span>Modelo Recomendado pela Luna</span>
+                                            </div>
+                                            <p className="text-xs text-slate-650 leading-relaxed font-medium bg-white p-3 rounded-xl border border-slate-100">
+                                              "{lunaRecommendationReason}"
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <div className="space-y-1.5">
+                                            <div className="flex items-center gap-1.5 text-amber-600 text-xs font-bold">
+                                              <Icons.Info className="w-3.5 h-3.5 text-amber-500" />
+                                              <span>Seleção Manual do Usuário</span>
+                                            </div>
+                                            <p className="text-xs text-slate-650 leading-relaxed font-medium bg-white p-3 rounded-xl border border-slate-100">
+                                              Seu uso ideal é: <strong className="text-slate-800 font-semibold">{selectedModelObj.idealUse}</strong>
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {selectedModelObj.benchmarks && (
+                                          <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                                            <div className="text-[10px] font-black text-slate-450 uppercase tracking-widest">
+                                              Benchmarks &amp; Características
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                              <div className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+                                                <span className="text-[10px] font-bold text-slate-400">Raciocínio</span>
+                                                <span className="text-sm font-black text-slate-800 mt-1">{selectedModelObj.benchmarks.reasoning}%</span>
+                                                <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
+                                                  <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${selectedModelObj.benchmarks.reasoning}%` }}></div>
+                                                </div>
+                                              </div>
+
+                                              <div className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+                                                <span className="text-[10px] font-bold text-slate-400">Programação</span>
+                                                <span className="text-sm font-black text-slate-800 mt-1">{selectedModelObj.benchmarks.coding}%</span>
+                                                <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
+                                                  <div className="bg-sky-500 h-full rounded-full" style={{ width: `${selectedModelObj.benchmarks.coding}%` }}></div>
+                                                </div>
+                                              </div>
+
+                                              <div className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+                                                <span className="text-[10px] font-bold text-slate-400">Velocidade</span>
+                                                <span className="text-sm font-black text-slate-800 mt-1">{selectedModelObj.benchmarks.speed}%</span>
+                                                <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
+                                                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${selectedModelObj.benchmarks.speed}%` }}></div>
+                                                </div>
+                                              </div>
+
+                                              <div className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+                                                <span className="text-[10px] font-bold text-slate-400">Custo-Benefício</span>
+                                                <span className="text-sm font-black text-slate-800 mt-1">{selectedModelObj.benchmarks.costEfficiency}%</span>
+                                                <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
+                                                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${selectedModelObj.benchmarks.costEfficiency}%` }}></div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1">
+                                              <span>Janela de Contexto: {selectedModelObj.contextWindow.toLocaleString()} tokens</span>
+                                              <span>Saída Máxima: {selectedModelObj.maxOutputTokens.toLocaleString()} tokens</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })()}
@@ -1748,34 +1948,58 @@ REQUISITOS OPERACIONAIS:
                             </button>
                           </div>
                         </div>
-                        <div className="relative">
+                        <div className="relative rounded-2xl border border-slate-200 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 overflow-hidden bg-slate-900 h-[380px]">
+                          {/* Highlighted layer beneath */}
+                          <div 
+                            ref={highlightRef}
+                            className="absolute inset-0 px-5 py-4 text-sm font-mono leading-relaxed whitespace-pre-wrap break-words text-slate-300 overflow-hidden pointer-events-none select-none"
+                            style={{ 
+                              color: '#cbd5e1',
+                            }}
+                          >
+                            {renderHighlightedPrompt(prompt || '')}
+                            {prompt.endsWith('\n') && '\n'}
+                          </div>
+                          
+                          {/* Actual textarea on top */}
                           <textarea 
                             required 
                             ref={promptTextareaRef}
                             value={prompt} 
                             onChange={handlePromptChange}
+                            onScroll={(e) => {
+                              if (highlightRef.current) {
+                                highlightRef.current.scrollTop = e.currentTarget.scrollTop;
+                              }
+                            }}
+                            onKeyDown={handlePromptKeyDown}
                             onSelect={handlePromptSelect}
                             onKeyUp={handlePromptSelect}
                             onClick={handlePromptSelect}
-                            rows={16} 
                             placeholder={createType === ResourceType.AGENT 
-                              ? 'Configure as diretrizes operacionais. Digite "/" para acessar os comandos, tools e subagentes...' 
-                              : 'Ex: Você é um assistente... Digite "/" para variáveis.'}
-                            className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-mono leading-relaxed transition-all bg-slate-900 text-slate-300 selection:bg-indigo-500/30"
+                              ? 'Configure as diretrizes operacionais. Comece a digitar ou use "[" ou "/" para preencher as tools existentes...' 
+                              : 'Ex: Você é um assistente... Digite "[" para variáveis.'}
+                            className="absolute inset-0 w-full h-full bg-transparent border-0 focus:ring-0 focus:outline-none px-5 py-4 text-sm font-mono leading-relaxed text-transparent caret-white selection:bg-indigo-500/30 resize-none overflow-y-auto"
+                            style={{
+                              WebkitTextFillColor: 'transparent',
+                            }}
                           ></textarea>
 
                           {showPromptSuggestions && filteredPromptSuggestions.length > 0 && (
-                            <div className="absolute z-50 left-5 top-full mt-2 max-w-xs w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-top-2 duration-150">
-                              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                Inserir Comando ou Variável
+                            <div className="absolute z-50 left-5 bottom-full mb-2 max-w-xs w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-2 duration-150">
+                              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                                <span>Inserir Comando ou Variável</span>
+                                <span className="text-[9px] text-slate-400 normal-case font-normal">Seta ↑↓ para navegar, Enter para escolher</span>
                               </div>
                               <div className="max-h-52 overflow-y-auto py-1">
-                                {filteredPromptSuggestions.map(s => (
+                                {filteredPromptSuggestions.map((s, idx) => (
                                   <button
                                     key={s.id}
                                     type="button"
                                     onClick={() => insertPromptSuggestion(s.name)}
-                                    className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                    className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors ${
+                                      idx === activeSuggestionIndex ? 'bg-indigo-50/85 text-indigo-900 font-medium' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
                                   >
                                     {s.type === 'TOOL' ? (
                                       <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
@@ -1791,7 +2015,9 @@ REQUISITOS OPERACIONAIS:
                                       </div>
                                     )}
                                     <div className="flex flex-col">
-                                      <span className="font-bold text-slate-700 truncate">{s.name}</span>
+                                      <span className={`font-bold truncate ${idx === activeSuggestionIndex ? 'text-indigo-900' : 'text-slate-700'}`}>
+                                        {s.name}
+                                      </span>
                                       <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                                         {s.type === 'TOOL' ? 'Ferramenta' : s.type === ResourceType.AGENT ? 'Subagente' : 'Skill'}
                                       </span>
