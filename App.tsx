@@ -134,7 +134,8 @@ const INITIAL_RESOURCES: Resource[] = [
     version: 1, 
     updatedAt: '2026-06-19', 
     prompt: 'Você é "Luna, o secretário", um assistente atencioso e inteligente da organização Zucchetti. Toda vez que o usuário salvar uma gravação de reunião ou notas de voz, o conteúdo transcrito é anexado diretamente à sua base de dados (RAG) o que permite que você responda com precisão extrema a perguntas detalhadas sobre as discussões, atas, tarefas e pessoas mencionadas nessas gravações. Quando o usuário fizer perguntas, consulte as notas de voz gravadas abaixo e retire as respostas diretamente delas se estiverem disponíveis. Responda detalhadamente e de forma prestativa, sempre em português.',
-    history: []
+    history: [],
+    lunaXp: 15
   },
   { 
     id: 'r1', 
@@ -161,7 +162,8 @@ const INITIAL_RESOURCES: Resource[] = [
         updatedAt: '2025-01-10',
         updatedBy: 'system'
       }
-    ]
+    ],
+    lunaXp: 10
   },
   { 
     id: 'r2', 
@@ -181,9 +183,10 @@ const INITIAL_RESOURCES: Resource[] = [
     history: [
       { version: 2, name: 'Doc ClippPro v2', description: 'Atualização de manuais 2024.', updatedAt: '2025-02-01', updatedBy: 'system' },
       { version: 1, name: 'Doc ClippPro v1', description: 'Carga inicial de documentação.', updatedAt: '2025-01-12', updatedBy: 'system' }
-    ]
+    ],
+    lunaXp: 12
   },
-  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Kristofer Pinheiro', creatorEmail: 'kristofer.pinheiro@zucchetti.com.br', creatorArea: 'TI', version: 1, updatedAt: '2025-02-05', projectId: 'r3' },
+  { id: 'r3', name: 'Gestor de Base', description: 'Manipula escritas e updates de dados.', type: ResourceType.AGENT, agentType: AgentType.WRITING, requiredRole: UserRole.ADVANCED, createdAt: '2025-02-05', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Kristofer Pinheiro', creatorEmail: 'kristofer.pinheiro@zucchetti.com.br', creatorArea: 'TI', version: 1, updatedAt: '2025-02-05', projectId: 'r3', lunaXp: 20 },
   { 
     id: 's1', 
     name: 'Validador de CNPJ', 
@@ -203,12 +206,13 @@ const INITIAL_RESOURCES: Resource[] = [
       fileSize: '4.8 KB',
       fileType: 'text/x-python',
       fileContent: 'import urllib.request\nimport json\n\ndef validate_cnpj(cnpj):\n    cnpj_clean = cnpj.replace(".", "").replace("/", "").replace("-", "")\n    url = f"https://publica.cnpj.ws/cnpj/{cnpj_clean}"\n    try:\n        response = urllib.request.urlopen(url)\n        data = json.loads(response.read().decode())\n        return {"status": "success", "data": data}\n    except Exception as e:\n        return {"status": "error", "message": str(e)}'
-    })
+    }),
+    lunaXp: 8
   },
-  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Gabrielli Carvalho', creatorEmail: 'gabrielli.carvalho@zucchetti.com.br', creatorArea: 'Compliance', version: 1, updatedAt: '2025-02-10', projectId: 'r4' },
-  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
-  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
-  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'Anthropic', creatorEmail: 'support@anthropic.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01' },
+  { id: 'r4', name: 'Auditor de Sistema', description: 'Analisa logs de execução.', type: ResourceType.AGENT, agentType: AgentType.INTERPRETATION, requiredRole: UserRole.ADMINISTRATOR, createdAt: '2025-02-10', environment: ResourceEnvironment.STAGING, creatorId: 'system', creatorName: 'Gabrielli Carvalho', creatorEmail: 'gabrielli.carvalho@zucchetti.com.br', creatorArea: 'Compliance', version: 1, updatedAt: '2025-02-10', projectId: 'r4', lunaXp: 25 },
+  { id: 'm1', name: 'GPT-4', description: 'Modelo de linguagem de alta performance da OpenAI.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01', lunaXp: 5 },
+  { id: 'm2', name: 'GPT-5-nano', description: 'Próxima geração de modelos compactos e eficientes.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'OpenAI', creatorEmail: 'support@openai.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01', lunaXp: 3 },
+  { id: 'm3', name: 'Claude 3.5', description: 'Modelo avançado da Anthropic com foco em raciocínio.', type: ResourceType.MARKET_MODEL, requiredRole: UserRole.BASIC, createdAt: '2025-03-01', environment: ResourceEnvironment.PRODUCTION, creatorId: 'system', creatorName: 'Anthropic', creatorEmail: 'support@anthropic.com', creatorArea: 'Parceiro Externo', version: 1, updatedAt: '2025-03-01', lunaXp: 6 },
 ];
 
 const INITIAL_REQUESTS: AccessRequest[] = [
@@ -415,7 +419,17 @@ const AppInner: React.FC = () => {
     localStorage.setItem('luna_tools', JSON.stringify(tools));
   }, [tools]);
 
-  const [savedTranscripts, setSavedTranscripts] = useState<{ id: string; title: string; content: string; timestamp: string; duration: string }[]>(() => {
+  const [savedTranscripts, setSavedTranscripts] = useState<{ 
+    id: string; 
+    title: string; 
+    content: string; 
+    timestamp: string; 
+    duration: string;
+    destination?: 'database' | 'private';
+    anonymized?: boolean;
+    permissionLevel?: 'public' | 'admin' | 'creator';
+    creatorName?: string;
+  }[]>(() => {
     const cached = localStorage.getItem('luna_transcripts');
     return cached ? JSON.parse(cached) : [];
   });
@@ -427,24 +441,60 @@ const AppInner: React.FC = () => {
       if (res.id === 'luna-secretario') {
         const basePrompt = 'Você é "Luna, o secretário", um assistente atencioso e inteligente da organização Zucchetti. Toda vez que o usuário salvar uma gravação de reunião ou notas de voz, o conteúdo transcrito é anexado diretamente à sua base de dados (RAG) o que permite que você responda com precisão extrema a perguntas detalhadas sobre as discussões, atas, tarefas e pessoas mencionadas nessas gravações. Quando o usuário fizer perguntas, consulte as notas de voz gravadas abaixo e retire as respostas diretamente delas se estiverem disponíveis. Responda detalhadamente e de forma prestativa, sempre em português.';
         
-        const ragContext = savedTranscripts.map(t => `\n\n--- GRAVAÇÃO SALVA NO RAG: ${t.title} (Data/Hora: ${t.timestamp}) ---\n${t.content}`).join('');
+        // Filtrar de acordo com a privacidade e permissionamento
+        const allowedTranscripts = savedTranscripts.filter(t => {
+          const dest = t.destination || 'database';
+          const perm = t.permissionLevel || 'public';
+          const creator = t.creatorName || 'Sistema';
+
+          // Se for mantido privado ("fique privado" -> 'private'), ele não deve ir ao RAG compartilhado, a menos que o usuário atual seja o criador
+          if (dest === 'private') {
+            return creator === user.name;
+          }
+
+          // Se for nível de acesso restrito
+          if (perm === 'creator') {
+            return creator === user.name;
+          }
+          if (perm === 'admin') {
+            return user.role === UserRole.ADMINISTRATOR || user.role === UserRole.ADVANCED;
+          }
+
+          return true; // Público
+        });
+
+        const ragContext = allowedTranscripts.map(t => {
+          const destStr = (t.destination === 'private') ? 'Privado' : 'Banco de Dados (RAG)';
+          const anonStr = t.anonymized ? 'Sim (LGPD)' : 'Não';
+          return `\n\n--- GRAVAÇÃO SALVA NO RAG: ${t.title} (Data/Hora: ${t.timestamp}) [Origem: ${destStr} / Permissão: ${t.permissionLevel || 'public'} / Anonimizado: ${anonStr}] ---\n${t.content}`;
+        }).join('');
         
         return {
           ...res,
-          prompt: basePrompt + (ragContext ? `\n\n--- BASE DE CONHECIMENTO RETRIEVED (RAG) ---\nUse estas informações abaixo para responder a qualquer pergunta do usuário:\n${ragContext}` : '\n\n(Nenhuma gravação foi salva no RAG até o momento. Incentive o usuário a usar o botão de gravação no cabeçalho para gerar e salvar as discussões corporativas)')
+          prompt: basePrompt + (ragContext ? `\n\n--- BASE DE CONHECIMENTO RETRIEVED (RAG) ---\nUse estas informações abaixo para responder a qualquer pergunta do usuário:\n${ragContext}` : '\n\n(Nenhuma gravação foi salva no RAG até o momento ou você não possui permissão para visualizar as gravações existentes. Incentive o usuário a usar o botão de gravação no cabeçalho para gerar e salvar as discussões corporativas)')
         };
       }
       return res;
     }));
-  }, [savedTranscripts]);
+  }, [savedTranscripts, user]);
 
-  const handleSaveTranscript = (title: string, content: string, duration: string) => {
+  const handleSaveTranscript = (
+    title: string, 
+    content: string, 
+    duration: string,
+    destination: 'database' | 'private' = 'database',
+    creatorName: string = user.name
+  ) => {
     const newTranscript = {
       id: `tr-${Date.now()}`,
       title,
       content,
       timestamp: new Date().toLocaleString(),
-      duration
+      duration,
+      destination,
+      anonymized: false,
+      permissionLevel: 'public' as const,
+      creatorName
     };
     setSavedTranscripts(prev => [newTranscript, ...prev]);
   };
@@ -626,6 +676,37 @@ const AppInner: React.FC = () => {
       }
       return conv;
     }));
+
+    // RF06 – Acúmulo de XP em tempo real para execuções concluídas com sucesso (mensagens do assistente)
+    if (message.role === 'assistant' && message.agentId) {
+      const resource = resources.find(r => r.id === message.agentId);
+      if (resource) {
+        const gainedXp = resource.lunaXp !== undefined ? Number(resource.lunaXp) : 10;
+        if (gainedXp > 0) {
+          setUser(prev => {
+            const updatedUser = {
+              ...prev,
+              lunaXp: (prev.lunaXp || 0) + gainedXp
+            };
+            localStorage.setItem('luna_user', JSON.stringify(updatedUser));
+            return updatedUser;
+          });
+
+          // Adiciona notificação de sucesso sobre o ganho de XP
+          const newNotif: Notification = {
+            id: `notif-xp-${Date.now()}`,
+            title: `+${gainedXp} Luna XP! 🌙`,
+            description: `Você executou o recurso "${resource.name}" com sucesso e economizou ${gainedXp} minutos de trabalho!`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            agentName: resource.name,
+            agentId: resource.id,
+            read: false,
+            type: 'success'
+          };
+          setNotifications(prev => [newNotif, ...prev]);
+        }
+      }
+    }
   };
 
   const handleApproveRequest = (id: string) => {

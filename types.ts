@@ -113,6 +113,7 @@ export interface Resource {
   schedulerTriggerPrompt?: string;
   subagents?: string[];
   isPublic?: boolean;
+  lunaXp?: number;
 }
 
 export interface Attachment {
@@ -191,6 +192,7 @@ export interface User {
   role: UserRole;
   avatar: string;
   bu?: string;
+  lunaXp?: number;
 }
 
 export interface ApiInteractionLog {
@@ -204,6 +206,8 @@ export interface ApiInteractionLog {
   timestamp: string;
   tokens?: number;
   cost?: number;
+  httpStatus?: number;
+  success?: boolean;
 }
 
 export interface ApiKey {

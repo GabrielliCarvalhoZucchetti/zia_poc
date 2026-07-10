@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Icons } from '../constants';
 import { User } from '../types';
+import { getAuthorAvatar } from './HomePage';
 
 interface CommunityPostPageProps {
   user: User | null;
@@ -414,9 +415,12 @@ export default function CommunityPostPage({ user }: CommunityPostPageProps) {
         {!isEditing && (
           <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full flex items-center justify-center font-bold text-sm uppercase">
-                {post.author.substring(0, 2)}
-              </div>
+              <img 
+                src={getAuthorAvatar(post.author)} 
+                alt={post.author}
+                className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-800 shadow-sm shrink-0"
+                referrerPolicy="no-referrer"
+              />
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {post.author}

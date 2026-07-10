@@ -200,6 +200,8 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookHeaders, setWebhookHeaders] = useState('');
   const [webhookBody, setWebhookBody] = useState('');
+  const [lunaXp, setLunaXp] = useState<number | ''>(1);
+  const [isLunaXpExpanded, setIsLunaXpExpanded] = useState(isEditing);
   const [linkedDocs, setLinkedDocs] = useState<string[]>([]);
   const [resourceEnvironment, setResourceEnvironment] = useState<ResourceEnvironment>(ResourceEnvironment.STAGING);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
@@ -211,6 +213,7 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const highlightRef = useRef<HTMLDivElement>(null);
+  const [clickedBracket, setClickedBracket] = useState<{ term: string; start: number; end: number } | null>(null);
 
   useEffect(() => {
     setActiveSuggestionIndex(0);
@@ -226,11 +229,33 @@ const CreateResourcePage: React.FC<CreateResourcePageProps> = ({
     tools.forEach(t => {
       vars.push({ name: t.name, type: 'TOOL', id: t.id });
     });
+    // Ensure "web crawler" and "web write" tools are available in the suggestions
+    if (!vars.some(v => v.name.toLowerCase() === 'web crawler')) {
+      vars.push({ name: 'web crawler', type: 'TOOL', id: 'web-crawler' });
+    }
+    if (!vars.some(v => v.name.toLowerCase() === 'web write')) {
+      vars.push({ name: 'web write', type: 'TOOL', id: 'web-write' });
+    }
     // Remove duplicates by ID
     return Array.from(new Map(vars.map(v => [v.id, v])).values());
   }, [resources, tools]);
 
-  const filteredPromptSuggestions = availableSuggestions.filter(v => v.name.toLowerCase().includes(promptSuggestionFilter.toLowerCase()));
+  const filteredPromptSuggestions = useMemo(() => {
+    if (clickedBracket && (
+      clickedBracket.term.trim().toLowerCase() === 'tool' ||
+      clickedBracket.term.trim().toLowerCase().includes('tool')
+    )) {
+      const filtered = availableSuggestions.filter(s => 
+        s.type === 'TOOL' && 
+        s.name.toLowerCase().includes(promptSuggestionFilter.toLowerCase())
+      );
+      if (filtered.length === 0) {
+        return availableSuggestions.filter(s => s.type === 'TOOL');
+      }
+      return filtered;
+    }
+    return availableSuggestions.filter(v => v.name.toLowerCase().includes(promptSuggestionFilter.toLowerCase()));
+  }, [availableSuggestions, promptSuggestionFilter, clickedBracket]);
 
   const mentionData = useMemo(() => {
     return availableSuggestions.map(s => ({
@@ -522,6 +547,7 @@ Aqui está o texto do usuário:
       setWebhookUrl(editingResource.webhookUrl || '');
       setWebhookHeaders(editingResource.webhookHeaders || '');
       setWebhookBody(editingResource.webhookBody || '');
+      setLunaXp(editingResource.lunaXp !== undefined ? editingResource.lunaXp : 1);
       setLinkedDocs(editingResource.linkedDocs || []);
       setLinkedToolIds(editingResource.tools || []);
       setResourceEnvironment(editingResource.environment || ResourceEnvironment.STAGING);
@@ -731,7 +757,65 @@ Aqui está o texto do usuário:
     });
   };
 
+  const getBracketedTermAtCursor = (val: string, pos: number) => {
+    let adjustedPos = pos;
+    if (val[pos] === '[') {
+      adjustedPos = pos + 1;
+    } else if (val[pos] === ']') {
+      adjustedPos = pos - 1;
+    }
+
+    let startIdx = -1;
+    for (let i = adjustedPos - 1; i >= 0; i--) {
+      if (val[i] === '[') {
+        startIdx = i;
+        break;
+      }
+      if (val[i] === ']') {
+        break;
+      }
+    }
+
+    let endIdx = -1;
+    for (let i = adjustedPos; i < val.length; i++) {
+      if (val[i] === ']') {
+        endIdx = i;
+        break;
+      }
+      if (val[i] === '[') {
+        break;
+      }
+    }
+
+    if (startIdx !== -1 && endIdx !== -1) {
+      return {
+        term: val.substring(startIdx + 1, endIdx),
+        start: startIdx,
+        end: endIdx
+      };
+    }
+    return null;
+  };
+
   const updatePromptSuggestions = (val: string, cursorPos: number) => {
+    const bracketInfo = getBracketedTermAtCursor(val, cursorPos);
+    if (bracketInfo && (
+      bracketInfo.term.trim().toLowerCase() === 'tool' ||
+      bracketInfo.term.trim().toLowerCase().includes('tool')
+    )) {
+      setClickedBracket(bracketInfo);
+      setShowPromptSuggestions(true);
+      
+      const match = bracketInfo.term.match(/^tool[_-\s]*(.*)$/i);
+      const filter = match ? match[1] : '';
+      setPromptSuggestionFilter(filter);
+      
+      setSuggestionCursorPosition(bracketInfo.start);
+      return;
+    } else {
+      setClickedBracket(null);
+    }
+
     const textBeforeCursor = val.substring(0, cursorPos);
     const slashMatch = textBeforeCursor.match(/\/([a-zA-Z0-9_ -]*)$/);
     const bracketMatch = textBeforeCursor.match(/\[([a-zA-Z0-9_ -]*)$/);
@@ -801,25 +885,35 @@ Aqui está o texto do usuário:
     const val = promptTextareaRef.current?.value || prompt;
     const cursorPos = promptTextareaRef.current?.selectionStart || suggestionCursorPosition;
     
-    let beforeBracket = val.substring(0, cursorPos);
-    const afterCursor = val.substring(cursorPos);
+    let beforeBracket = '';
+    let afterCursor = '';
+    let newPos = 0;
     
-    if (beforeBracket.endsWith('/' + promptSuggestionFilter)) {
-      beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
-    } else if (beforeBracket.endsWith('[' + promptSuggestionFilter)) {
-      beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
-    } else if (beforeBracket.endsWith(promptSuggestionFilter)) {
-      beforeBracket = beforeBracket.slice(0, -promptSuggestionFilter.length);
+    if (clickedBracket) {
+      beforeBracket = val.substring(0, clickedBracket.start);
+      afterCursor = val.substring(clickedBracket.end + 1);
+      newPos = clickedBracket.start + suggestionName.length + 2;
+    } else {
+      beforeBracket = val.substring(0, cursorPos);
+      afterCursor = val.substring(cursorPos);
+      if (beforeBracket.endsWith('/' + promptSuggestionFilter)) {
+        beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
+      } else if (beforeBracket.endsWith('[' + promptSuggestionFilter)) {
+        beforeBracket = beforeBracket.slice(0, -(promptSuggestionFilter.length + 1));
+      } else if (beforeBracket.endsWith(promptSuggestionFilter)) {
+        beforeBracket = beforeBracket.slice(0, -promptSuggestionFilter.length);
+      }
+      newPos = beforeBracket.length + suggestionName.length + 2;
     }
     
     const newPrompt = beforeBracket + '[' + suggestionName + ']' + afterCursor;
     setPrompt(newPrompt);
     setShowPromptSuggestions(false);
+    setClickedBracket(null);
     
     setTimeout(() => {
       if (promptTextareaRef.current) {
         promptTextareaRef.current.focus();
-        const newPos = beforeBracket.length + suggestionName.length + 2;
         promptTextareaRef.current.setSelectionRange(newPos, newPos);
         if (highlightRef.current) {
           highlightRef.current.scrollTop = promptTextareaRef.current.scrollTop;
@@ -849,6 +943,16 @@ Aqui está o texto do usuário:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (lunaXp === '') {
+      alert("O campo Luna XP é obrigatório.");
+      return;
+    }
+    const xpValue = typeof lunaXp === 'number' ? Math.floor(lunaXp) : parseInt(lunaXp, 10);
+    if (isNaN(xpValue) || xpValue <= 0) {
+      alert("Por favor, insira um valor inteiro positivo para o Luna XP.");
+      return;
+    }
 
     if (createType === ResourceType.SKILL && !skillFile) {
       alert("Por favor, carregue o arquivo de código da Skill antes de publicar.");
@@ -909,7 +1013,8 @@ Aqui está o texto do usuário:
         schedulerEnabled: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? schedulerEnabled : undefined,
         schedulerPeriodicity: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && schedulerEnabled ? schedulerPeriodicity : undefined,
         subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
-        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined
+        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined,
+        lunaXp: xpValue
       });
     } else {
       onCreateResource({
@@ -930,7 +1035,8 @@ Aqui está o texto do usuário:
         schedulerEnabled: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? schedulerEnabled : undefined,
         schedulerPeriodicity: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) && schedulerEnabled ? schedulerPeriodicity : undefined,
         subagents: createType === ResourceType.AGENT ? selectedSubagentIds : undefined,
-        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined
+        isPublic: [ResourceType.AGENT, ResourceType.ASSISTANT, ResourceType.AUTOMATION].includes(createType) ? isPublic : undefined,
+        lunaXp: xpValue
       });
     }
     navigate('/resources');
@@ -1254,7 +1360,7 @@ REQUISITOS OPERACIONAIS:
               
               {/* Seção 1: Identidade */}
               <div className="grid grid-cols-1 gap-6">
-                <div className={createType !== ResourceType.SKILL ? "grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" : "grid grid-cols-1 gap-6 items-start"}>
+                <div className={createType !== ResourceType.SKILL ? "grid grid-cols-1 lg:grid-cols-4 gap-6 items-start" : "grid grid-cols-1 gap-6 items-start"}>
                   
                   {/* ACCORDION ROADMAP / CLASSIFICACAO TYPE */}
                   <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
@@ -1403,6 +1509,64 @@ REQUISITOS OPERACIONAIS:
                               placeholder="Ex: Engine de Triagem Fiscal" 
                               className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-sm font-semibold text-slate-800 transition-all" 
                             />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ACCORDION LUNA XP */}
+                      <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all">
+                        <button
+                          type="button"
+                          onClick={() => setIsLunaXpExpanded(!isLunaXpExpanded)}
+                          className="w-full flex items-center justify-between p-6 bg-slate-50/50 hover:bg-slate-50 transition-all text-left"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center text-emerald-650 shadow-sm shrink-0">
+                              <Icons.Lightning className="w-5 h-5 text-emerald-600 animate-pulse" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">Luna XP</h3>
+                              <p className="text-[11px] text-slate-500 font-medium">Eficiência e ganho de tempo</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {lunaXp !== '' && (
+                              <span className="text-[10px] bg-emerald-100 text-emerald-750 px-2 py-0.5 rounded font-bold uppercase tracking-tight">
+                                {lunaXp} XP
+                              </span>
+                            )}
+                            <Icons.ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isLunaXpExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </button>
+
+                        {isLunaXpExpanded && (
+                          <div className="p-6 border-t border-slate-100 space-y-4 text-left">
+                            <input 
+                              required 
+                              value={lunaXp} 
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  setLunaXp('');
+                                } else {
+                                  const parsed = parseInt(val, 10);
+                                  if (!isNaN(parsed)) {
+                                    setLunaXp(parsed);
+                                  }
+                                }
+                              }} 
+                              type="number" 
+                              step="1"
+                              min="1"
+                              placeholder="Ex: 15" 
+                              className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 text-sm font-semibold text-slate-800 transition-all" 
+                            />
+                            <p className="text-[11px] text-slate-500 font-medium ml-1">
+                              Quantos minutos esse recurso poupa da rotina cada vez que roda?
+                            </p>
+                            <p className="text-[10px] text-emerald-600 font-bold ml-1">
+                              Conversão fixa: 1 Luna XP = 1 minuto poupado.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1720,7 +1884,7 @@ REQUISITOS OPERACIONAIS:
                   {isSkillExpanded && (
                     <div className="p-8 border-t border-slate-100 space-y-6">
                       {/* Detalhes de Identificação da Skill */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-200/60 shadow-inner">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-200/60 shadow-inner">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-455 uppercase tracking-[0.15em] ml-1 flex items-center gap-2">
                             <span>Nome de Exibição da Skill</span>
@@ -1762,6 +1926,35 @@ REQUISITOS OPERACIONAIS:
                             <option value={ResourceEnvironment.STAGING}>🛠️ Homologação (STAGING)</option>
                           </select>
                           <p className="text-[10px] text-slate-400 ml-1 font-medium italic">Selecione para onde deseja publicar esta Skill</p>
+                        </div>
+
+                        <div className="space-y-2 text-left">
+                          <label className="text-[10px] font-black text-slate-455 uppercase tracking-[0.15em] ml-1 flex items-center justify-between">
+                            <span>Luna XP</span>
+                          </label>
+                          <input
+                            required
+                            type="number"
+                            step="1"
+                            min="1"
+                            value={lunaXp}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setLunaXp('');
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                if (!isNaN(parsed)) {
+                                  setLunaXp(parsed);
+                                }
+                              }
+                            }}
+                            placeholder="Ex: 15"
+                            className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 transition-all focus:outline-none focus:ring-4 focus:ring-fuchsia-500/10 focus:border-fuchsia-500 placeholder:text-slate-400"
+                          />
+                          <p className="text-[10px] text-slate-400 ml-1 font-medium">
+                            Quantos minutos esse recurso poupa da rotina cada vez que roda?
+                          </p>
                         </div>
                       </div>
 
@@ -1948,42 +2141,44 @@ REQUISITOS OPERACIONAIS:
                             </button>
                           </div>
                         </div>
-                        <div className="relative rounded-2xl border border-slate-200 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 overflow-hidden bg-slate-900 h-[380px]">
-                          {/* Highlighted layer beneath */}
-                          <div 
-                            ref={highlightRef}
-                            className="absolute inset-0 px-5 py-4 text-sm font-mono leading-relaxed whitespace-pre-wrap break-words text-slate-300 overflow-hidden pointer-events-none select-none"
-                            style={{ 
-                              color: '#cbd5e1',
-                            }}
-                          >
-                            {renderHighlightedPrompt(prompt || '')}
-                            {prompt.endsWith('\n') && '\n'}
+                        <div className="relative">
+                          <div className="relative rounded-2xl border border-slate-200 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 overflow-hidden bg-slate-900 h-[380px]">
+                            {/* Highlighted layer beneath */}
+                            <div 
+                              ref={highlightRef}
+                              className="absolute inset-0 px-5 py-4 text-sm font-mono leading-relaxed whitespace-pre-wrap break-words text-slate-300 overflow-hidden pointer-events-none select-none"
+                              style={{ 
+                                color: '#cbd5e1',
+                              }}
+                            >
+                              {renderHighlightedPrompt(prompt || '')}
+                              {prompt.endsWith('\n') && '\n'}
+                            </div>
+                            
+                            {/* Actual textarea on top */}
+                            <textarea 
+                              required 
+                              ref={promptTextareaRef}
+                              value={prompt} 
+                              onChange={handlePromptChange}
+                              onScroll={(e) => {
+                                if (highlightRef.current) {
+                                  highlightRef.current.scrollTop = e.currentTarget.scrollTop;
+                                }
+                              }}
+                              onKeyDown={handlePromptKeyDown}
+                              onSelect={handlePromptSelect}
+                              onKeyUp={handlePromptSelect}
+                              onClick={handlePromptSelect}
+                              placeholder={createType === ResourceType.AGENT 
+                                ? 'Configure as diretrizes operacionais. Comece a digitar ou use "[" ou "/" para preencher as tools existentes...' 
+                                : 'Ex: Você é um assistente... Digite "[" para variáveis.'}
+                              className="absolute inset-0 w-full h-full bg-transparent border-0 focus:ring-0 focus:outline-none px-5 py-4 text-sm font-mono leading-relaxed text-transparent caret-white selection:bg-indigo-500/30 resize-none overflow-y-auto"
+                              style={{
+                                WebkitTextFillColor: 'transparent',
+                              }}
+                            ></textarea>
                           </div>
-                          
-                          {/* Actual textarea on top */}
-                          <textarea 
-                            required 
-                            ref={promptTextareaRef}
-                            value={prompt} 
-                            onChange={handlePromptChange}
-                            onScroll={(e) => {
-                              if (highlightRef.current) {
-                                highlightRef.current.scrollTop = e.currentTarget.scrollTop;
-                              }
-                            }}
-                            onKeyDown={handlePromptKeyDown}
-                            onSelect={handlePromptSelect}
-                            onKeyUp={handlePromptSelect}
-                            onClick={handlePromptSelect}
-                            placeholder={createType === ResourceType.AGENT 
-                              ? 'Configure as diretrizes operacionais. Comece a digitar ou use "[" ou "/" para preencher as tools existentes...' 
-                              : 'Ex: Você é um assistente... Digite "[" para variáveis.'}
-                            className="absolute inset-0 w-full h-full bg-transparent border-0 focus:ring-0 focus:outline-none px-5 py-4 text-sm font-mono leading-relaxed text-transparent caret-white selection:bg-indigo-500/30 resize-none overflow-y-auto"
-                            style={{
-                              WebkitTextFillColor: 'transparent',
-                            }}
-                          ></textarea>
 
                           {showPromptSuggestions && filteredPromptSuggestions.length > 0 && (
                             <div className="absolute z-50 left-5 bottom-full mb-2 max-w-xs w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-2 duration-150">

@@ -233,6 +233,86 @@ interface HeaderAnimationProps {
 export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpState, user, onUpdateUser }) => {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [phase, setPhase] = useState<'idle' | 'walkingToCenter' | 'planting' | 'walkingToEnd'>('idle');
+  
+  // Dynamic stats calculation from LocalStorage
+  const [conversationsCount, setConversationsCount] = useState(15);
+  const [resourcesCount, setResourcesCount] = useState(2);
+  const [prodResourcesCount, setProdResourcesCount] = useState(1);
+
+  useEffect(() => {
+    try {
+      const cachedResources = localStorage.getItem('luna_resources');
+      if (cachedResources) {
+        const parsed = JSON.parse(cachedResources);
+        setResourcesCount(parsed.length);
+        setProdResourcesCount(parsed.filter((r: any) => r.environment === 'PRODUCTION').length);
+      }
+      
+      const cachedConvs = localStorage.getItem('luna_conversations');
+      if (cachedConvs) {
+        const parsed = JSON.parse(cachedConvs);
+        const totalMsgs = parsed.reduce((acc: number, curr: any) => acc + (curr.messages?.length || 0), 0);
+        setConversationsCount(totalMsgs > 0 ? totalMsgs : 15);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [user]);
+
+  const getUserLevel = (xp: number) => {
+    if (xp >= 600) return 'AI CHAMPION 👑';
+    if (xp >= 300) return 'AI BUILDER 🚀';
+    if (xp >= 100) return 'AI USER ⚡';
+    return 'AI STARTER 🌱';
+  };
+  const currentLevel = getUserLevel(user?.lunaXp || 0);
+  
+  // Hover particle state for the gamified coin totalizer
+  const [hoverParticles, setHoverParticles] = useState<{ id: string; x: number; y: number; text: string; scale: number; rotate: number; delay: number }[]>([]);
+  const nextParticleId = useRef(0);
+
+  const spawnParticle = (e?: React.MouseEvent) => {
+    const rect = e?.currentTarget.getBoundingClientRect();
+    let x = Math.random() * 80 + 40; // default relative position in px
+    let y = Math.random() * 30 + 40;
+    
+    if (e && rect) {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+
+    const texts = ['🪙', '🪙', '✨', '🌟', 'XP', 'XP', '+XP', '+10XP', '+25XP'];
+    const text = texts[Math.floor(Math.random() * texts.length)];
+    const scale = Math.random() * 0.4 + 0.8;
+    const rotate = Math.random() * 60 - 30;
+
+    const newParticle = {
+      id: `coin-particle-${nextParticleId.current++}-${Date.now()}`,
+      x,
+      y,
+      text,
+      scale,
+      rotate,
+      delay: Math.random() * 0.05
+    };
+
+    setHoverParticles(prev => [...prev.slice(-30), newParticle]);
+  };
+
+  const handleCardMouseMove = (e: React.MouseEvent) => {
+    if (Math.random() < 0.45) {
+      spawnParticle(e);
+    }
+  };
+
+  const handleCardMouseEnter = (e: React.MouseEvent) => {
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => {
+        spawnParticle(e);
+      }, i * 50);
+    }
+  };
+
   const [typedText, setTypedText] = useState('');
   const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number }[]>([]);
   const [smokeParticles, setSmokeParticles] = useState<{ id: number; x: number; y: number; scale: number }[]>([]);
@@ -497,7 +577,7 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
                   ? 'bg-sky-950/70 text-sky-300 border-sky-900/60' 
                   : 'bg-sky-100 text-sky-700 border-sky-200'
               }`}>
-                AI STARTER
+                {currentLevel}
               </span>
               
               {/* Level Up Simulator buttons with click propagation stopped */}
@@ -512,6 +592,9 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
                   onClick={(e) => {
                     e.stopPropagation();
                     setLevelUpState({ active: true, level: "AI User" });
+                    if (onUpdateUser && user) {
+                      onUpdateUser({ ...user, lunaXp: 120 });
+                    }
                   }}
                   className={`px-2 py-0.5 text-[9px] font-black rounded border cursor-pointer active:scale-95 transition-all ${
                     currentScene.isDark
@@ -526,6 +609,9 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
                   onClick={(e) => {
                     e.stopPropagation();
                     setLevelUpState({ active: true, level: "AI Builder" });
+                    if (onUpdateUser && user) {
+                      onUpdateUser({ ...user, lunaXp: 350 });
+                    }
                   }}
                   className={`px-2 py-0.5 text-[9px] font-black rounded border cursor-pointer active:scale-95 transition-all ${
                     currentScene.isDark
@@ -540,6 +626,9 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
                   onClick={(e) => {
                     e.stopPropagation();
                     setLevelUpState({ active: true, level: "AI Champion" });
+                    if (onUpdateUser && user) {
+                      onUpdateUser({ ...user, lunaXp: 650 });
+                    }
                   }}
                   className={`px-2 py-0.5 text-[9px] font-black rounded border cursor-pointer active:scale-95 transition-all ${
                     currentScene.isDark
@@ -556,7 +645,7 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
 
         {/* Floating Stats grid with glassmorphic styling */}
         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto" onClick={(e) => e.stopPropagation()}>
-          <div className={`flex-1 lg:flex-none min-w-[140px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
+          <div className={`flex-1 lg:flex-none min-w-[130px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
             currentScene.isDark
               ? 'bg-slate-950/50 border-slate-800/80'
               : 'bg-white/50 border-slate-200/60'
@@ -569,11 +658,11 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
             <div className={`text-2xl font-black mt-1 ${
               currentScene.isDark ? 'text-white' : 'text-slate-800'
             }`}>
-              15
+              {conversationsCount}
             </div>
           </div>
           
-          <div className={`flex-1 lg:flex-none min-w-[140px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
+          <div className={`flex-1 lg:flex-none min-w-[130px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
             currentScene.isDark
               ? 'bg-slate-950/50 border-slate-800/80'
               : 'bg-white/50 border-slate-200/60'
@@ -586,11 +675,11 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
             <div className={`text-2xl font-black mt-1 ${
               currentScene.isDark ? 'text-white' : 'text-slate-800'
             }`}>
-              2
+              {resourcesCount}
             </div>
           </div>
           
-          <div className={`flex-1 lg:flex-none min-w-[140px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
+          <div className={`flex-1 lg:flex-none min-w-[130px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-sm ${
             currentScene.isDark
               ? 'bg-slate-950/50 border-slate-800/80'
               : 'bg-white/50 border-slate-200/60'
@@ -603,7 +692,88 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
             <div className={`text-2xl font-black mt-1 ${
               currentScene.isDark ? 'text-white' : 'text-slate-800'
             }`}>
-              1
+              {prodResourcesCount}
+            </div>
+          </div>
+
+          {/* NEW Luna XP / Minutos Economizados Card */}
+          <div 
+            onMouseEnter={handleCardMouseEnter}
+            onMouseMove={handleCardMouseMove}
+            className={`flex-1 lg:flex-none min-w-[170px] border rounded-2xl p-4 text-left transition-all backdrop-blur-md shadow-md ring-1 ring-amber-500/20 relative overflow-hidden select-none group cursor-pointer ${
+              currentScene.isDark
+                ? 'bg-amber-950/20 border-amber-500/30 hover:bg-amber-950/30'
+                : 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-100/50'
+            }`}
+          >
+            {/* Ambient Background Glow on hover */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/0 via-amber-500/0 to-amber-500/5 group-hover:to-amber-500/10 transition-all pointer-events-none" />
+
+            <div className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+              currentScene.isDark ? 'text-amber-400' : 'text-amber-700'
+            }`}>
+              <span>Luna XP</span>
+            </div>
+
+            {/* Gamified Coin and Totalizer Box */}
+            <div className="flex items-center gap-3 mt-2.5 relative z-10">
+              {/* Static gold XP Coin */}
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-400 via-yellow-200 to-amber-500 border-2 border-amber-300 flex items-center justify-center shadow-[0_0_12px_rgba(245,158,11,0.5)] select-none">
+                  <span className="text-[10px] font-black text-amber-950 tracking-tighter">XP</span>
+                </div>
+                {/* Coin internal golden ring */}
+                <div className="absolute inset-0.5 rounded-full border border-yellow-100/35 pointer-events-none" />
+              </div>
+
+              {/* Huge Totalizer Text */}
+              <div className="flex flex-col">
+                <span className={`text-2xl font-black tracking-tight leading-none flex items-baseline gap-0.5 ${
+                  currentScene.isDark ? 'text-white' : 'text-slate-800'
+                }`}>
+                  {user?.lunaXp || 0}
+                  <span className="text-[10px] font-bold text-amber-500">XP</span>
+                </span>
+                <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">
+                  Totalizador
+                </span>
+              </div>
+            </div>
+
+            {/* Hover Floating Particles Renderer */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <AnimatePresence>
+                {hoverParticles.map((p) => (
+                  <motion.div
+                    key={p.id}
+                    initial={{ 
+                      opacity: 1, 
+                      scale: 0.2, 
+                      x: p.x - 10,
+                      y: p.y - 10 
+                    }}
+                    animate={{ 
+                      opacity: [1, 1, 0], 
+                      scale: [0.4, p.scale, p.scale * 0.7],
+                      x: p.x + (Math.random() * 80 - 40),
+                      y: p.y - (Math.random() * 80 + 80),
+                      rotate: p.rotate * 2.5,
+                    }}
+                    exit={{ opacity: 0 }}
+                    transition={{ 
+                      duration: 1.2, 
+                      ease: "easeOut",
+                      delay: p.delay 
+                    }}
+                    className="absolute pointer-events-none select-none text-[10px] font-black z-30 text-amber-400 font-mono flex items-center justify-center filter drop-shadow-[0_1px_3px_rgba(245,158,11,0.5)]"
+                    style={{
+                      textShadow: '0 0 3px rgba(245,158,11,0.5)'
+                    }}
+                  >
+                    {p.text}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         </div>

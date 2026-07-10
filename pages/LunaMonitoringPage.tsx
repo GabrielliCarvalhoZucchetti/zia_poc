@@ -119,7 +119,9 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     output: 'O faturamento total de Março foi de R$ 1.250.000,00, representando um aumento de 15% em relação a Fevereiro.',
     timestamp: '2026-04-23 14:10:05',
     tokens: 154,
-    cost: 0.05
+    cost: 0.05,
+    httpStatus: 200,
+    success: true
   },
   {
     id: 'l2',
@@ -131,7 +133,9 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     output: 'O churn rate do time POS está em 4.2%. Os principais motivos identificados são falta de engajamento no primeiro mês e preço.',
     timestamp: '2026-04-23 14:15:22',
     tokens: 450,
-    cost: 0.12
+    cost: 0.12,
+    httpStatus: 200,
+    success: true
   },
   {
     id: 'l3',
@@ -140,10 +144,12 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     apiKeyName: 'LUNA_KEY_01',
     input: 'Verificar logs de erro do módulo ERP.',
     model: 'GPT-4o mini',
-    output: 'Foram encontrados 3 alertas críticos nas últimas 24 horas relacionados à conexão com o banco de dados.',
+    output: 'Erro interno no servidor de banco de dados (Timeout na conexão). Falha ao buscar registros históricos.',
     timestamp: '2026-04-23 14:20:10',
-    tokens: 210,
-    cost: 0.02
+    tokens: 0,
+    cost: 0.00,
+    httpStatus: 500,
+    success: false
   },
   {
     id: 'l4',
@@ -155,7 +161,9 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     output: 'Para configurar o certificado, acesse Menu > Configurações > Certificado e selecione o arquivo .pfx importado.',
     timestamp: '2026-04-23 14:25:45',
     tokens: 320,
-    cost: 0.01
+    cost: 0.01,
+    httpStatus: 200,
+    success: true
   },
   {
     id: 'l5',
@@ -167,7 +175,9 @@ const MOCK_LOGS: ApiInteractionLog[] = [
     output: 'O e-mail trata da nova política de home-office que será implementada a partir de Junho nas unidades administrativas.',
     timestamp: '2026-04-23 14:30:12',
     tokens: 180,
-    cost: 0.06
+    cost: 0.06,
+    httpStatus: 200,
+    success: true
   }
 ];
 
@@ -1019,6 +1029,7 @@ const LunaMonitoringPage: React.FC<LunaMonitoringPageProps> = ({ isDarkMode }) =
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest min-w-[200px]">Input Enviado</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modelo</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest min-w-[250px]">Output Recebido</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Timestamp</th>
                   </tr>
                 </thead>
@@ -1055,6 +1066,27 @@ const LunaMonitoringPage: React.FC<LunaMonitoringPageProps> = ({ isDarkMode }) =
                       <td className="px-6 py-5">
                         <div className="text-xs text-slate-800 line-clamp-3 max-w-[400px] leading-relaxed font-medium">
                           {log.output}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            log.success !== false
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
+                              : 'bg-rose-50 text-rose-700 border border-rose-100 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50'
+                          }`}>
+                            {log.httpStatus || 200}
+                          </span>
+                          <span className={`flex items-center gap-1.5 text-[10px] font-bold ${
+                            log.success !== false
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              log.success !== false ? 'bg-emerald-500' : 'bg-rose-500'
+                            }`} />
+                            {log.success !== false ? 'Sucesso' : 'Erro'}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">

@@ -512,40 +512,89 @@ const ResourceManagementPage: React.FC<ResourceManagementPageProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {transcriptsList.map((t, idx) => (
-                      <div key={t.id || idx} className="bg-white border border-slate-200 p-4 rounded-xl hover:shadow-xs transition-all">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-800">{t.title}</h4>
-                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium">
-                              <span>📅 {t.timestamp}</span>
-                              <span>•</span>
-                              <span>⏱️ Duração: {t.duration}</span>
+                    {transcriptsList.map((t, idx) => {
+                      const dest = t.destination || 'database';
+                      const perm = t.permissionLevel || 'public';
+                      const creator = t.creatorName || 'Sistema';
+                      
+                      // Verifica acesso do usuário atual
+                      const hasAccess = (() => {
+                        if (dest === 'private') {
+                          return creator === user.name;
+                        }
+                        if (perm === 'creator') {
+                          return creator === user.name;
+                        }
+                        if (perm === 'admin') {
+                          return user.role === UserRole.ADMINISTRATOR || user.role === UserRole.ADVANCED;
+                        }
+                        return true;
+                      })();
+
+                      return (
+                        <div key={t.id || idx} className={`bg-white border p-4 rounded-xl hover:shadow-xs transition-all ${!hasAccess ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200'}`}>
+                          <div className="flex items-start justify-between gap-4 mb-2.5">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                {/* Badge de Destino */}
+                                {dest === 'private' ? (
+                                  <span className="text-[9px] font-extrabold bg-rose-50 border border-rose-150 text-rose-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <span>🔒</span>
+                                    <span>Privado (Local)</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-extrabold bg-emerald-50 border border-emerald-150 text-emerald-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <span>🗄️</span>
+                                    <span>Banco (RAG)</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              <h4 className="text-xs font-black text-slate-850 flex items-center gap-1.5">
+                                {t.title}
+                                {!hasAccess && <span className="text-[10px] text-amber-600 font-extrabold">(Acesso Restrito)</span>}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium flex-wrap">
+                                <span>📅 {t.timestamp}</span>
+                                <span>•</span>
+                                <span>⏱️ Duração: {t.duration}</span>
+                                <span>•</span>
+                                <span className="font-semibold text-slate-500">✍️ Autor: {creator}</span>
+                              </div>
                             </div>
+                            
+                            {hasAccess && (
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Tem certeza que deseja remover esta gravação do RAG do Luna? Isso excluirá permanentemente.`)) {
+                                    const updated = transcriptsList.filter((_, i) => i !== idx);
+                                    localStorage.setItem('luna_transcripts', JSON.stringify(updated));
+                                    setTranscriptsList(updated);
+                                    alert("Documento excluído com sucesso do RAG do Luna!");
+                                    window.location.reload();
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-red-600 hover:text-red-750 hover:bg-red-50 border border-red-150/30 px-2.5 py-1 rounded-lg cursor-pointer transition-all shrink-0"
+                              >
+                                Excluir
+                              </button>
+                            )}
                           </div>
                           
-                          <button 
-                            onClick={() => {
-                              if (confirm(`Tem certeza que deseja remover esta gravação do RAG do Luna? Isso excluirá permanentemente.`)) {
-                                const updated = transcriptsList.filter((_, i) => i !== idx);
-                                localStorage.setItem('luna_transcripts', JSON.stringify(updated));
-                                setTranscriptsList(updated);
-                                alert("Documento excluído com sucesso do RAG do Luna!");
-                                // Trigger a reload by reloading the window or setting state
-                                window.location.reload();
-                              }
-                            }}
-                            className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-150/30 px-2.5 py-1 rounded-lg cursor-pointer transition-all shrink-0"
-                          >
-                            Excluir
-                          </button>
+                          {hasAccess ? (
+                            <div className="text-xs text-slate-650 bg-slate-50 p-3 rounded-lg border border-slate-150/50 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed">
+                              {t.content}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-400 bg-amber-50/5 p-4 rounded-lg border border-amber-205/30 flex flex-col items-center justify-center py-6 gap-2">
+                              <span>🔒</span>
+                              <p className="font-extrabold text-[11px] text-slate-600">Conteúdo Protegido por Permissionamento de Acesso</p>
+                              <p className="text-[10px] text-slate-450 text-center max-w-md">Esta gravação foi marcada com acesso restrito pelo autor original ({creator}) e não está disponível para o seu nível de acesso atual.</p>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="text-xs text-slate-650 bg-slate-50 p-3 rounded-lg border border-slate-150/50 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed">
-                          {t.content}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

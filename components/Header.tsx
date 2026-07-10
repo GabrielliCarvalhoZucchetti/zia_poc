@@ -13,7 +13,13 @@ interface HeaderProps {
   onLogout?: () => void;
   isDarkMode?: boolean;
   toggleDarkMode?: () => void;
-  onSaveTranscript?: (title: string, content: string, duration: string) => void;
+  onSaveTranscript?: (
+    title: string,
+    content: string,
+    duration: string,
+    destination: 'database' | 'private',
+    creatorName: string
+  ) => void;
   savedTranscripts?: any[];
   notifications?: Notification[];
   setNotifications?: React.Dispatch<React.SetStateAction<Notification[]>>;
@@ -68,6 +74,9 @@ const Header: React.FC<HeaderProps> = ({
   const [recordingTitle, setRecordingTitle] = React.useState('');
   const [transcriptText, setTranscriptText] = React.useState('');
   const [isTranscribing, setIsTranscribing] = React.useState(false);
+
+  // Safety and privacy states
+  const [saveDestination, setSaveDestination] = React.useState<'database' | 'private'>('database');
 
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const audioChunksRef = React.useRef<Blob[]>([]);
@@ -263,9 +272,20 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
 
     if (onSaveTranscript) {
       const formattedDuration = formatDuration(recordingDuration);
-      onSaveTranscript(recordingTitle, transcriptText, formattedDuration);
+      onSaveTranscript(
+        recordingTitle,
+        transcriptText,
+        formattedDuration,
+        saveDestination,
+        user.name
+      );
       setShowSaveModal(false);
-      alert(`Gravação salva com sucesso! O conteúdo transcrito foi inserido com sucesso na base de conhecimento (RAG) do assistente "Luna, o secretário".`);
+      
+      const privacyMsg = saveDestination === 'private' 
+        ? "Salva como PRIVADA (armazenamento local exclusivo)" 
+        : "Salva no BANCO DE DADOS (RAG compartilhado)";
+      
+      alert(`Gravação processada com sucesso!\n\n• ${privacyMsg}`);
     }
   };
 
@@ -289,7 +309,7 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
+    <header className={`h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 transition-all ${showSaveModal ? 'z-[9999]' : 'z-10'}`}>
       <div className="flex items-center gap-4 flex-1">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-105">
@@ -513,7 +533,6 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
             {/* Content */}
             <div className="p-6 overflow-y-auto space-y-4">
               <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 text-xs text-sky-850 flex items-start gap-3 leading-relaxed">
-                <span className="text-lg">💁‍♂️</span>
                 <div>
                   <p className="font-bold mb-0.5">Vetorização e Organização no RAG</p>
                   <p className="text-sky-750">Esta gravação e o texto transcrito serão persistidos na base de inteligência (RAG) do assistente default <strong>Luna, o secretário</strong>, ficando prontos para consulta em tempo real no Playground.</p>
@@ -539,6 +558,41 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
                   <audio src={audioUrl} controls className="w-full h-10 border border-slate-200/85 rounded-xl bg-slate-50 focus:outline-none" />
                 </div>
               )}
+
+              {/* --- DESTINO DA GRAVAÇÃO --- */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 shadow-inner">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <span>Destino de Armazenamento (Luna Secretário)</span>
+                </h3>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[9px] font-black text-slate-450 uppercase tracking-wider">
+                    Onde salvar esta gravação?
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-4 pt-1">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="saveDestination"
+                        checked={saveDestination === 'database'}
+                        onChange={() => setSaveDestination('database')}
+                        className="text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="flex items-center gap-1">Gravar no Banco (RAG do Assistente)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="saveDestination"
+                        checked={saveDestination === 'private'}
+                        onChange={() => setSaveDestination('private')}
+                        className="text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="flex items-center gap-1">Ficar Privado (Armazenamento Local)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
 
               {/* Transcrição da Gravação */}
               <div className="space-y-1">
@@ -581,7 +635,7 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
                   onClick={() => setShowSaveModal(false)}
                   className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-650 transition-all cursor-pointer"
                 >
-                  Continuar Editando
+                  Continuar Gravando
                 </button>
                 <button 
                   onClick={handleSave}
@@ -589,7 +643,7 @@ Participante(s): ${user.name} (Papel/Área: ${user.bu || 'Geral'})
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Salvar no RAG do Luna</span>
+                  <span>Salvar</span>
                 </button>
               </div>
             </div>

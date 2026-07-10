@@ -40,6 +40,26 @@ const RANKING_AI_CHAMPION = [
   { rank: '5º', name: 'Luciano Huck', count: 2, type: 'HOMOLOGADOS', avatar: 'https://picsum.photos/seed/luciano/100/100' },
 ];
 
+export const getAuthorAvatar = (name: string): string => {
+  const normalized = (name || '').trim().toLowerCase();
+  if (normalized.includes('gabrielli')) {
+    return 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80';
+  }
+  if (normalized.includes('alice')) {
+    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  }
+  if (normalized.includes('ana')) {
+    return 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80';
+  }
+  if (normalized.includes('gabriel')) {
+    return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80';
+  }
+  if (normalized.includes('rodrigo')) {
+    return 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+};
+
 interface HomePageProps {
   user?: any;
   onUpdateUser?: (updatedUser: any) => void;
@@ -249,113 +269,7 @@ const HomePage: React.FC<HomePageProps> = ({
           onUpdateUser={onUpdateUser} 
         />
 
-        {/* PRÓXIMAS MISSÕES */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-sky-100 dark:bg-sky-950/50 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                <Icons.Sparkle className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-base font-black text-slate-800 dark:text-white tracking-tight">Próximas Missões</h3>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-not-allowed" disabled>
-                <Icons.ChevronLeft className="w-4 h-4" />
-              </button>
-              <button className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-not-allowed" disabled>
-                <Icons.ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            
-            {/* Mission Card 1 */}
-            <div className="bg-slate-50/20 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 relative overflow-hidden transition-all hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-blue-500/5 group">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-bl-[50px] flex items-center justify-center pl-6 pb-6 z-10">
-                <Icons.Check className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
-                    <PremiumRankBadge level="AI Starter" size={72} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-md z-10">
-                    CONCLUÍDA
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">AI Starter</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
-                    Converse ao menos uma vez com a Luna e inicie sua jornada até ser um AI Champion
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Mission Card 2 */}
-            <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-sky-400/50 dark:hover:border-sky-500/40 hover:shadow-sky-500/5 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
-                    <PremiumRankBadge level="AI User" size={72} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-0.5 rounded-md border border-sky-100 dark:border-sky-900/40">
-                    ATUAL
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-850 dark:text-slate-200 group-hover:text-sky-500 dark:group-hover:text-sky-450 transition-colors">AI User</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
-                    Alcance mais de 10 interações com a Luna e se torne um AI User
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Mission Card 3 */}
-            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-purple-400/50 dark:hover:border-purple-500/40 hover:shadow-purple-500/5 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
-                    <PremiumRankBadge level="AI Builder" size={72} />
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-md">
-                    PRÓXIMA
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors">AI Builder</h4>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed mt-2">
-                    Crie um assistente ou agente de IA via Gestão de Recursos e se torne um AI Builder
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Mission Card 4 */}
-            <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-[24px] p-6 flex flex-col justify-between space-y-6 transition-all hover:shadow-lg hover:border-amber-400/50 dark:hover:border-amber-500/40 hover:shadow-amber-500/5 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="relative w-16 h-16 flex items-center justify-center -mt-2 -ml-2">
-                    <PremiumRankBadge level="AI Champion" size={72} />
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-md">
-                    PRÓXIMA
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-600 dark:text-slate-350 group-hover:text-amber-500 dark:group-hover:text-amber-450 transition-colors">AI Champion</h4>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed mt-2">
-                    Tenha ao menos um recurso de IA homologado pelo time de Innovation & Research e se torne um AI Champion
-                  </p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </section>
 
         {/* RANKINGS SECTION */}
         <section className="space-y-4">
@@ -777,14 +691,22 @@ const HomePage: React.FC<HomePageProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs">
-                      {/* Author & Date */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-mono tracking-wider w-fit">
-                          {post.author.toUpperCase()}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono pl-1">
-                          {post.date}
-                        </span>
+                      {/* Author & Date with Portrait Photo */}
+                      <div className="flex items-center gap-2.5">
+                        <img 
+                          src={getAuthorAvatar(post.author)} 
+                          alt={post.author}
+                          className="w-8 h-8 rounded-full object-cover border border-slate-100 dark:border-slate-800 shadow-sm shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-none">
+                            {post.author}
+                          </span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 leading-none">
+                            {post.date}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Playground action / Hyperlink action */}
@@ -794,7 +716,7 @@ const HomePage: React.FC<HomePageProps> = ({
                           onClick={(e) => handleOpenPlayground(post.resourceId, e)}
                           className="text-xs font-black text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 flex items-center gap-1 cursor-pointer transition-colors"
                         >
-                          <span>Acessar 🤖</span>
+                          <span>Saiba mais</span>
                           <Icons.ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       ) : post.hyperlink ? (
