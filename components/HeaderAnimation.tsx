@@ -271,14 +271,13 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
   const [hoverParticles, setHoverParticles] = useState<{ id: string; x: number; y: number; text: string; scale: number; rotate: number; delay: number }[]>([]);
   const nextParticleId = useRef(0);
 
-  const spawnParticle = (e?: React.MouseEvent) => {
-    const rect = e?.currentTarget.getBoundingClientRect();
+  const spawnParticle = (coords?: { clientX: number; clientY: number; rect: DOMRect }) => {
     let x = Math.random() * 80 + 40; // default relative position in px
     let y = Math.random() * 30 + 40;
     
-    if (e && rect) {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
+    if (coords) {
+      x = coords.clientX - coords.rect.left;
+      y = coords.clientY - coords.rect.top;
     }
 
     const texts = ['🪙', '🪙', '✨', '🌟', 'XP', 'XP', '+XP', '+10XP', '+25XP'];
@@ -300,16 +299,22 @@ export const HeaderAnimation: React.FC<HeaderAnimationProps> = ({ setLevelUpStat
   };
 
   const handleCardMouseMove = (e: React.MouseEvent) => {
-    if (Math.random() < 0.45) {
-      spawnParticle(e);
+    if (Math.random() < 0.45 && e.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      spawnParticle({ clientX: e.clientX, clientY: e.clientY, rect });
     }
   };
 
   const handleCardMouseEnter = (e: React.MouseEvent) => {
-    for (let i = 0; i < 8; i++) {
-      setTimeout(() => {
-        spawnParticle(e);
-      }, i * 50);
+    if (e.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          spawnParticle({ clientX, clientY, rect });
+        }, i * 50);
+      }
     }
   };
 

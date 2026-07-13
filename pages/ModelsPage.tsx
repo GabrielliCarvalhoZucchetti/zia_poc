@@ -224,18 +224,11 @@ const ModelsPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={handleOpenCreateUseCase}
-              className="px-4 py-2.5 bg-slate-800/80 border border-slate-700/60 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg"
-            >
-              <Icons.Plus className="w-4 h-4" />
-              <span>Novo Caso de Uso</span>
-            </button>
-            <button
               onClick={handleOpenCreateModel}
               className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 shadow-lg hover:shadow-indigo-500/20"
             >
               <Icons.Plus className="w-4 h-4" />
-              <span>Cadastrar Modelo</span>
+              <span>Cadastrar Bench do Modelo</span>
             </button>
           </div>
         </div>
@@ -245,7 +238,7 @@ const ModelsPage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         
         {/* Left Side: Filter and Model List */}
-        <div className="w-full lg:w-[45%] border-r border-slate-200 bg-white flex flex-col overflow-hidden">
+        <div className="w-full lg:w-[30%] border-r border-slate-200 bg-white flex flex-col overflow-hidden">
           
           {/* Filter Bar */}
           <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
@@ -328,12 +321,12 @@ const ModelsPage: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Preferred Use Case label */}
-                        {linkedUseCase && (
+                        {/* Context label */}
+                        {model.idealUse && (
                           <div className="flex items-center gap-1.5 mt-2.5">
-                            <span className="text-[10px] font-semibold text-slate-400">Uso preferencial:</span>
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/30">
-                              {linkedUseCase.name}
+                            <span className="text-[10px] font-semibold text-slate-400">Contexto:</span>
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/30 max-w-[200px] truncate">
+                              {model.idealUse}
                             </span>
                           </div>
                         )}
@@ -401,33 +394,26 @@ const ModelsPage: React.FC = () => {
               {/* Detailed Specs Block */}
               <div className="grid grid-cols-1 gap-6">
                 
-                {/* Preferred Use Case detail card */}
+                {/* Context detail card */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                       </div>
-                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Caso de Uso Preferencial</span>
+                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Contexto</span>
                     </div>
-                    {(() => {
-                      const linked = useCases.find(uc => uc.id === selectedModel.preferredUseCaseId);
-                      if (linked) {
-                        return (
-                          <div className="space-y-1.5">
-                            <h4 className="text-sm font-bold text-slate-800">{linked.name}</h4>
-                            <p className="text-xs text-slate-500 font-medium leading-relaxed">{linked.description}</p>
-                          </div>
-                        );
-                      }
-                      return (
-                        <p className="text-xs text-slate-400 font-medium italic">Nenhum caso de uso preferencial vinculado.</p>
-                      );
-                    })()}
+                    {selectedModel.idealUse ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-slate-650 font-medium leading-relaxed">{selectedModel.idealUse}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-medium italic">Nenhum contexto informado.</p>
+                    )}
                   </div>
                   
                   {/* Token limits monthly */}
-                  <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
+                  <div className="hidden pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Limite de Tokens / Mês:</span>
                     <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
                       {selectedModel.tokenLimitPerMonth.toLocaleString()} tokens
@@ -492,48 +478,7 @@ const ModelsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Luna's Consumption Dashboard Card */}
-              <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-sky-900/40 via-transparent to-transparent"></div>
-                
-                <div className="relative space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-slate-800 text-sky-400 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"/><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"/></svg>
-                      </div>
-                      <h3 className="font-extrabold text-sm">Consumo Integrado do Luna</h3>
-                    </div>
-                    <span className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-md font-bold uppercase">Métricas em Tempo Real</span>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
-                    <div className="space-y-1">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chamadas de API</div>
-                      <div className="text-2xl font-extrabold text-white font-mono">
-                        {selectedModel.lunaConsumption.totalCalls.toLocaleString()}
-                      </div>
-                      <div className="text-[10.5px] text-slate-500 font-medium">requisições totais</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Volume de Tokens</div>
-                      <div className="text-2xl font-extrabold text-white font-mono">
-                        {selectedModel.lunaConsumption.tokensConsumed.toLocaleString()}
-                      </div>
-                      <div className="text-[10.5px] text-slate-500 font-medium">tokens processados</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Investimento Estimado</div>
-                      <div className="text-2xl font-extrabold text-sky-400 font-mono">
-                        {selectedModel.lunaConsumption.estimatedCost === 0 ? 'R$ 0,00' : `R$ ${selectedModel.lunaConsumption.estimatedCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </div>
-                      <div className="text-[10.5px] text-slate-500 font-medium">custo total de processamento</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
             </motion.div>
           ) : (
@@ -596,20 +541,18 @@ const ModelsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Visibility Toggle and Preferred Use Case Dropdown */}
+                {/* Context Input Field */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Caso de Uso Preferencial *</label>
-                    <p className="text-[10px] text-slate-400 font-semibold mb-1">Mapeia o modelo com a tabela de casos de uso preferencial</p>
-                    <select
-                      value={modelPreferredUseCaseId}
-                      onChange={e => setModelPreferredUseCaseId(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800 bg-white"
-                    >
-                      {useCases.map(uc => (
-                        <option key={uc.id} value={uc.id}>{uc.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider ml-1">Contexto</label>
+                    <p className="text-[10px] text-slate-400 font-semibold mb-1">Descrição do contexto recomendado para o modelo</p>
+                    <input
+                      type="text"
+                      placeholder="Ex: Ideal para análise de dados complexos"
+                      value={modelIdealUse}
+                      onChange={e => setModelIdealUse(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-250 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 text-xs font-semibold text-slate-800"
+                    />
                   </div>
 
                   <div className="space-y-1.5 flex flex-col justify-end">
