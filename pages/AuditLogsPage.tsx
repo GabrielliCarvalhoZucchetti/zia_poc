@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { Icons } from '../constants';
+import { deptXpService } from '../services/deptXpService';
 
 const AuditLogsPage: React.FC = () => {
   const [selectedLog, setSelectedLog] = React.useState<any>(null);
 
-  const logs = [
+  const staticLogs = [
     { 
-      id: 1, 
+      id: 'static-1', 
       user: 'Joao Silva', 
       action: 'Criação de Recurso', 
       resource: 'Agente de Vendas', 
@@ -21,7 +22,7 @@ const AuditLogsPage: React.FC = () => {
       }
     },
     { 
-      id: 2, 
+      id: 'static-2', 
       user: 'Maria Souza', 
       action: 'Consulta Vetorizada', 
       resource: 'Doc Financeiro', 
@@ -35,7 +36,7 @@ const AuditLogsPage: React.FC = () => {
       }
     },
     { 
-      id: 3, 
+      id: 'static-3', 
       user: 'Carlos Ed', 
       action: 'Execução de Rota', 
       resource: 'Agente de Ação', 
@@ -50,7 +51,7 @@ const AuditLogsPage: React.FC = () => {
       }
     },
     { 
-      id: 4, 
+      id: 'static-4', 
       user: 'Joao Silva', 
       action: 'Alteração de Prompt', 
       resource: 'General Assistant', 
@@ -63,7 +64,7 @@ const AuditLogsPage: React.FC = () => {
       }
     },
     { 
-      id: 5, 
+      id: 'static-5', 
       user: 'Sistema', 
       action: 'Recalibração de Vetores', 
       resource: 'Doc Jurídico', 
@@ -77,6 +78,9 @@ const AuditLogsPage: React.FC = () => {
       }
     },
   ];
+
+  const dynamicLogs = deptXpService.getAuditLogs();
+  const logs = [...dynamicLogs, ...staticLogs];
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">

@@ -20,7 +20,8 @@ import CreateResourcePage from './pages/CreateResourcePage';
 import { LoginPage } from './pages/LoginPage';
 import ModelsPage from './pages/ModelsPage';
 import CommunityPostPage from './pages/CommunityPostPage';
-import SavingCapacityPage from './pages/SavingCapacityPage';
+import AdminGestaoLinksPage from './pages/AdminGestaoLinksPage';
+import PainelGestorPage from './pages/PainelGestorPage';
 
 const INITIAL_TOOLS: Tool[] = [
   {
@@ -976,7 +977,31 @@ const AppInner: React.FC = () => {
               <Route path="/community/:id" element={<CommunityPostPage user={user} />} />
               <Route path="/whatsapp-monitor" element={<WhatsAppMonitorPage />} />
               <Route path="/itau-upload" element={<ItauLeadUploadPage />} />
-              <Route path="/saving-capacity" element={<div className="flex-1 overflow-y-auto bg-slate-50"><SavingCapacityPage /></div>} />
+              <Route path="/gestor-vinculos" element={
+                <div className="flex-1 overflow-y-auto bg-slate-50">
+                  <AdminGestaoLinksPage user={user} />
+                </div>
+              } />
+              <Route path="/luna-xp" element={
+                <div className="flex-1 overflow-y-auto bg-slate-50">
+                  <PainelGestorPage 
+                    user={user} 
+                    onAddSystemNotification={(title, desc, agentName) => {
+                      const newNotif: Notification = {
+                        id: `notif-badge-${Date.now()}`,
+                        title,
+                        description: desc,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        agentName: agentName,
+                        agentId: 'system',
+                        read: false,
+                        type: 'success'
+                      };
+                      setNotifications(prev => [newNotif, ...prev]);
+                    }}
+                  />
+                </div>
+              } />
               <Route path="/znote/*" element={<ZnoteLayout />} />
             </Routes>
           </main>
